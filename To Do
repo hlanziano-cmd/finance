@@ -1,0 +1,6 @@
+Configurar Row Level Security (RLS)
+
+ Habilitar RLS en todas las tablas
+ Crear políticas de seguridad
+ Probar acceso con diferentes usuarios
+ Verificar aislamiento entre organizaciones

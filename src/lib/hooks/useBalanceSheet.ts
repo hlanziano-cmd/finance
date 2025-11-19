@@ -1,0 +1,130 @@
+// src/lib/hooks/useBalanceSheet.ts
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSupabase } from '@/src/lib/hooks/useSupabase';
+import { BalanceSheetService } from '@/src/services/balance-sheet.service';
+import { useOrganization } from '@/src/lib/hooks/useOrganization';
+import type {
+  BalanceSheet,
+  CreateBalanceSheetDTO,
+  UpdateBalanceSheetDTO,
+  BalanceSheetFilters,
+} from '@/src/types';
+import { toast } from 'sonner';
+
+export function useBalanceSheet(id?: string) {
+  const supabase = useSupabase();
+  const service = new BalanceSheetService(supabase);
+
+  return useQuery({
+    queryKey: ['balance-sheet', id],
+    queryFn: () => service.getById(id!),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+}
+
+export function useBalanceSheets(filters?: BalanceSheetFilters) {
+  const supabase = useSupabase();
+  const { currentOrganization } = useOrganization();
+  const service = new BalanceSheetService(supabase);
+
+  return useQuery({
+    queryKey: ['balance-sheets', currentOrganization?.id, filters],
+    queryFn: () => service.list(currentOrganization!.id, filters),
+    enabled: !!currentOrganization,
+    staleTime: 2 * 60 * 1000, // 2 minutos
+  });
+}
+
+export function useCreateBalanceSheet() {
+  const supabase = useSupabase();
+  const { currentOrganization } = useOrganization();
+  const queryClient = useQueryClient();
+  const service = new BalanceSheetService(supabase);
+
+  return useMutation({
+    mutationFn: (dto: CreateBalanceSheetDTO) =>
+      service.create(currentOrganization!.id, dto),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['balance-sheets'] });
+      toast.success('Balance creado exitosamente');
+    },
+    onError: (error: Error) => {
+      toast.error(`Error al crear balance: ${error.message}`);
+    },
+  });
+}
+
+export function useUpdateBalanceSheet(id: string) {
+  const supabase = useSupabase();
+  const queryClient = useQueryClient();
+  const service = new BalanceSheetService(supabase);
+
+  return useMutation({
+    mutationFn: (dto: UpdateBalanceSheetDTO) => service.update(id, dto),
+    onMutate: async (dto) => {
+      // Cancelar queries en progreso
+      await queryClient.cancelQueries({ queryKey: ['balance-sheet', id] });
+
+      // Snapshot del estado anterior
+      const previousData = queryClient.getQueryData(['balance-sheet', id]);
+
+      // Actualización optimista
+      queryClient.setQueryData(['balance-sheet', id], (old: BalanceSheet) => ({
+        ...old,
+        ...dto,
+      }));
+
+      return { previousData };
+    },
+    onError: (error, variables, context) => {
+      // Rollback en caso de error
+      if (context?.previousData) {
+        queryClient.setQueryData(['balance-sheet', id], context.previousData);
+      }
+      toast.error(`Error al actualizar: ${error.message}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['balance-sheet', id] });
+      queryClient.invalidateQueries({ queryKey: ['balance-sheets'] });
+      toast.success('Balance actualizado');
+    },
+  });
+}
+
+export function useDeleteBalanceSheet() {
+  const supabase = useSupabase();
+  const queryClient = useQueryClient();
+  const service = new BalanceSheetService(supabase);
+
+  return useMutation({
+    mutationFn: (id: string) => service.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['balance-sheets'] });
+      toast.success('Balance eliminado');
+    },
+    onError: (error: Error) => {
+      toast.error(`Error al eliminar: ${error.message}`);
+    },
+  });
+}
+
+export function useFinalizeBalanceSheet() {
+  const supabase = useSupabase();
+  const queryClient = useQueryClient();
+  const service = new BalanceSheetService(supabase);
+
+  return useMutation({
+    mutationFn: (id: string) => service.finalize(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['balance-sheet', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['balance-sheets'] });
+      toast.success('Balance finalizado');
+    },
+    onError: (error: Error) => {
+      toast.error(`Error al finalizar: ${error.message}`);
+    },
+  });
+}
+

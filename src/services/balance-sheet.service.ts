@@ -49,17 +49,28 @@ export class BalanceSheetService {
   }
 
   /**
-   * Listar balances de una organización con filtros
+   * Listar balances del usuario actual con filtros
    */
   async list(
-    organizationId: string,
     filters?: BalanceSheetFilters,
     pagination?: PaginationParams
   ): Promise<PaginatedResponse<BalanceSheet>> {
+    console.log('=== BALANCE SHEET SERVICE DEBUG ===');
+    console.log('Filters:', filters);
+    console.log('Pagination:', pagination);
+
+    // Obtener usuario actual
+    const { data: { user } } = await this.supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    console.log('User ID:', user.id);
+
     let query = this.supabase
       .from('balance_sheets')
       .select('*, items:balance_sheet_items(*)', { count: 'exact' })
-      .eq('organization_id', organizationId);
+      .eq('created_by', user.id);
 
     // Aplicar filtros
     if (filters?.status) {
@@ -95,9 +106,16 @@ export class BalanceSheetService {
       query = query.range(from, to);
     }
 
+    console.log('Executing query...');
     const { data, error, count } = await query;
 
+    console.log('Query result:');
+    console.log('- Data:', data);
+    console.log('- Error:', error);
+    console.log('- Count:', count);
+
     if (error) {
+      console.log('Supabase error:', error);
       throw new DatabaseError(error.message);
     }
 
@@ -123,7 +141,6 @@ export class BalanceSheetService {
    * Crear un balance general
    */
   async create(
-    organizationId: string,
     dto: CreateBalanceSheetDTO
   ): Promise<BalanceSheet> {
     // Validar DTO
@@ -141,12 +158,12 @@ export class BalanceSheetService {
       throw new Error('Usuario no autenticado');
     }
 
-    // Insertar balance
+    // Insertar balance (sin organization_id)
     // @ts-ignore
     const { data, error } = await this.supabase
       .from('balance_sheets')
       .insert({
-        organization_id: organizationId,
+        organization_id: null,
         name: dto.name,
         period_start: dto.periodStart.toISOString(),
         period_end: dto.periodEnd.toISOString(),
@@ -158,13 +175,19 @@ export class BalanceSheetService {
       .single();
 
     if (error || !data) {
+      console.error('Error creating balance:', error);
       throw new DatabaseError(error?.message || 'Error al crear balance');
     }
 
     const balanceData = data as any;
 
-    // Registrar en audit log
-    await this.createAuditLog(organizationId, 'create', 'balance_sheet', balanceData.id);
+    // Registrar en audit log (sin organization_id)
+    try {
+      await this.createAuditLog(null, 'create', 'balance_sheet', balanceData.id);
+    } catch (auditError) {
+      console.warn('Error creating audit log:', auditError);
+      // No lanzar error, continuar
+    }
 
     return mapBalanceSheetFromDB(balanceData);
   }

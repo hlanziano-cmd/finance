@@ -4,56 +4,29 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
   FileText,
   TrendingUp,
-  Building2,
-  Users,
   Settings,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
-import { useOrganization } from '@/src/lib/hooks/useOrganization';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Balances', href: '/dashboard/balances', icon: FileText },
+  { name: 'Balance General', href: '/dashboard/balances', icon: FileText },
+  { name: 'Estado de Resultados', href: '/dashboard/income-statement', icon: BarChart3 },
   { name: 'Indicadores', href: '/dashboard/indicators', icon: TrendingUp },
-  { name: 'Organizaciones', href: '/dashboard/organizations', icon: Building2 },
-  { name: 'Equipo', href: '/dashboard/team', icon: Users },
   { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { currentOrganization } = useOrganization();
 
   return (
     <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
       {/* Logo */}
       <div className="flex h-16 items-center px-6 border-b border-gray-800">
         <h1 className="text-xl font-bold">Fluxi Finance</h1>
-      </div>
-
-      {/* Organization Selector */}
-      <div className="px-4 py-4 border-b border-gray-800">
-        {currentOrganization ? (
-          <div className="flex items-center space-x-3 px-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-sm font-semibold">
-              {currentOrganization.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{currentOrganization.name}</p>
-              <p className="text-xs text-gray-400 truncate">
-                {currentOrganization.subscriptionPlan}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="px-2">
-            <p className="text-sm text-gray-400">Selecciona una organización</p>
-          </div>
-        )}
       </div>
 
       {/* Navigation */}

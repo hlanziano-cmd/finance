@@ -1,4 +1,4 @@
-// src/app/dashboard/balances/page.tsx
+// src/app/balances/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -8,11 +8,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/src/components/ui/Table';
+import { useOrganization } from '@/src/lib/hooks/useOrganization';
 import { useBalanceSheets, useDeleteBalanceSheet } from '@/src/lib/hooks/useBalanceSheet';
 import { formatDate, formatCurrency } from '@/src/lib/utils';
 
 export default function BalancesPage() {
   const router = useRouter();
+  const { currentOrganization } = useOrganization();
   const [page, setPage] = useState(1);
   const limit = 20;
   const { data, isLoading } = useBalanceSheets({ limit, offset: (page - 1) * limit });
@@ -37,6 +39,21 @@ export default function BalancesPage() {
 
   const totalPages = data?.pagination ? Math.ceil(data.pagination.totalItems / limit) : 0;
 
+  if (!currentOrganization) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>No hay organización seleccionada</CardTitle>
+            <CardDescription>
+              Selecciona una organización para ver sus balances.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -44,7 +61,7 @@ export default function BalancesPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Balance General</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Estados de situación financiera
+            Estados de situación financiera de {currentOrganization.name}
           </p>
         </div>
         <Button onClick={() => router.push('/dashboard/balances/new')}>
@@ -160,31 +177,16 @@ export default function BalancesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Ver detalles"
-                          onClick={() => router.push(`/dashboard/balances/${balance.id}`)}
-                        >
-                          <Eye className="h-4 w-4 text-blue-600" />
+                        <Button variant="ghost" size="sm" title="Ver detalles">
+                          <Eye className="h-4 w-4" />
                         </Button>
                         {balance.status === 'draft' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Editar"
-                            onClick={() => router.push(`/dashboard/balances/${balance.id}/edit`)}
-                          >
-                            <Edit className="h-4 w-4 text-green-600" />
+                          <Button variant="ghost" size="sm" title="Editar">
+                            <Edit className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Exportar"
-                          onClick={() => alert('La función de exportar estará disponible próximamente')}
-                        >
-                          <Download className="h-4 w-4 text-purple-600" />
+                        <Button variant="ghost" size="sm" title="Exportar">
+                          <Download className="h-4 w-4" />
                         </Button>
                         {balance.status === 'draft' && (
                           <Button

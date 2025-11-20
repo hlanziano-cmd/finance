@@ -3,7 +3,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '@/src/lib/hooks/useSupabase';
 import { BalanceSheetService } from '@/src/services/balance-sheet.service';
-import { useOrganization } from '@/src/lib/hooks/useOrganization';
 import type {
   BalanceSheet,
   CreateBalanceSheetDTO,
@@ -26,31 +25,28 @@ export function useBalanceSheet(id?: string) {
 
 export function useBalanceSheets(filters?: BalanceSheetFilters) {
   const supabase = useSupabase();
-  const { currentOrganization } = useOrganization();
   const service = new BalanceSheetService(supabase);
 
   return useQuery({
-    queryKey: ['balance-sheets', currentOrganization?.id, filters],
-    queryFn: () => service.list(currentOrganization!.id, filters),
-    enabled: !!currentOrganization,
+    queryKey: ['balance-sheets', filters],
+    queryFn: () => service.list(filters),
     staleTime: 2 * 60 * 1000, // 2 minutos
   });
 }
 
 export function useCreateBalanceSheet() {
   const supabase = useSupabase();
-  const { currentOrganization } = useOrganization();
   const queryClient = useQueryClient();
   const service = new BalanceSheetService(supabase);
 
   return useMutation({
-    mutationFn: (dto: CreateBalanceSheetDTO) =>
-      service.create(currentOrganization!.id, dto),
+    mutationFn: (dto: CreateBalanceSheetDTO) => service.create(dto),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['balance-sheets'] });
       toast.success('Balance creado exitosamente');
     },
     onError: (error: Error) => {
+      console.error('Error creating balance:', error);
       toast.error(`Error al crear balance: ${error.message}`);
     },
   });
@@ -127,4 +123,3 @@ export function useFinalizeBalanceSheet() {
     },
   });
 }
-

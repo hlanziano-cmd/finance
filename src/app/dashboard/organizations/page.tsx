@@ -1,7 +1,7 @@
 // src/app/dashboard/organizations/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Building2, Users, Crown, Shield, Edit, Trash2, Settings } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -17,6 +17,14 @@ export default function OrganizationsPage() {
   const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
 
   const organizations = data?.data || [];
+
+  // Seleccionar automáticamente la primera organización si no hay ninguna seleccionada
+  useEffect(() => {
+    if (organizations.length > 0 && !currentOrganization) {
+      console.log('Auto-selecting first organization:', organizations[0]);
+      setCurrentOrganization(organizations[0]);
+    }
+  }, [organizations, currentOrganization, setCurrentOrganization]);
 
   const handleDelete = async (id: string) => {
     if (confirm('¿Estás seguro de eliminar esta organización? Esta acción eliminará todos sus datos asociados y no se puede deshacer.')) {

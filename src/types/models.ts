@@ -32,7 +32,7 @@ export interface BalanceSheet {
 export interface BalanceSheetItem {
   id: string;
   balanceSheetId: string;
-  organizationId: string;
+  organizationId: string | null;
   category: 'activo' | 'pasivo' | 'patrimonio';
   subcategory: string;
   accountName: string;

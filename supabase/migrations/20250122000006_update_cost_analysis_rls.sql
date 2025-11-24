@@ -1,10 +1,14 @@
 -- Update RLS policies for cost_analysis to allow NULL organization_id
 
--- Drop existing policies
+-- Drop existing policies (both old and new names)
 DROP POLICY IF EXISTS "Users can view cost analysis from their organization" ON public.cost_analysis;
 DROP POLICY IF EXISTS "Users can create cost analysis for their organization" ON public.cost_analysis;
 DROP POLICY IF EXISTS "Users can update cost analysis from their organization" ON public.cost_analysis;
 DROP POLICY IF EXISTS "Users can delete cost analysis from their organization" ON public.cost_analysis;
+DROP POLICY IF EXISTS "Users can view their own cost analysis" ON public.cost_analysis;
+DROP POLICY IF EXISTS "Users can create their own cost analysis" ON public.cost_analysis;
+DROP POLICY IF EXISTS "Users can update their own cost analysis" ON public.cost_analysis;
+DROP POLICY IF EXISTS "Users can delete their own cost analysis" ON public.cost_analysis;
 
 -- Create new policies that allow NULL organization_id
 CREATE POLICY "Users can view their own cost analysis"

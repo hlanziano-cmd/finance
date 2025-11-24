@@ -88,10 +88,24 @@ export default function NewBalancePage() {
     if (!accountName) return;
 
     const accountCode = `CUSTOM_${category}_${Date.now()}`;
+
+    // Mapear la categoría del estado a las categorías del modelo
+    const categoryMap: Record<keyof typeof customAccounts, { category: SimplifiedAccount['category'], subcategory: string }> = {
+      activoCorriente: { category: 'activo', subcategory: 'Activo Corriente' },
+      activoNoCorriente: { category: 'activo', subcategory: 'Activo No Corriente' },
+      pasivoCorriente: { category: 'pasivo', subcategory: 'Pasivo Corriente' },
+      pasivoNoCorriente: { category: 'pasivo', subcategory: 'Pasivo No Corriente' },
+      patrimonio: { category: 'patrimonio', subcategory: 'Patrimonio' },
+    };
+
+    const { category: accountCategory, subcategory } = categoryMap[category];
+
     const newAccount: SimplifiedAccount = {
       code: accountCode,
       name: accountName,
       description: 'Cuenta personalizada',
+      category: accountCategory,
+      subcategory: subcategory,
       examples: [],
     };
 

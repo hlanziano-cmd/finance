@@ -14,7 +14,7 @@ export default function BalancesPage() {
   const { data: balances, isLoading } = useBalanceSheets();
   const deleteBalanceMutation = useDeleteBalanceSheet();
 
-  const balancesList = balances || [];
+  const balancesList = balances?.data || [];
 
   const handleDelete = async (id: string) => {
     if (confirm('¿Estás seguro de eliminar este balance? Esta acción no se puede deshacer.')) {

@@ -513,11 +513,11 @@ export function exportBalanceSheetToPDF(balanceSheet: BalanceSheet) {
   doc.setFont('helvetica', 'normal');
   doc.text(balanceSheet.name, 105, 30, { align: 'center' });
 
-  const startDate = new Date(balanceSheet.period_start).toLocaleDateString('es-CO');
-  const endDate = new Date(balanceSheet.period_end).toLocaleDateString('es-CO');
+  const startDate = new Date(balanceSheet.periodStart).toLocaleDateString('es-CO');
+  const endDate = new Date(balanceSheet.periodEnd).toLocaleDateString('es-CO');
   doc.setFontSize(10);
   doc.text(`Período: ${startDate} - ${endDate}`, 105, 37, { align: 'center' });
-  doc.text(`Año Fiscal: ${balanceSheet.fiscal_year}`, 105, 43, { align: 'center' });
+  doc.text(`Año Fiscal: ${balanceSheet.fiscalYear}`, 105, 43, { align: 'center' });
 
   // Línea separadora
   doc.setDrawColor(200, 200, 200);
@@ -787,7 +787,7 @@ export function exportBalanceSheetToPDF(balanceSheet: BalanceSheet) {
   doc.text(new Date().toLocaleString('es-CO'), 105, pageHeight - 5, { align: 'center' });
 
   // Guardar PDF
-  const fileName = `${balanceSheet.name.replace(/\s+/g, '_')}_${balanceSheet.fiscal_year}.pdf`;
+  const fileName = `${balanceSheet.name.replace(/\s+/g, '_')}_${balanceSheet.fiscalYear}.pdf`;
   doc.save(fileName);
 }
 
@@ -852,7 +852,7 @@ export function exportCashFlowToPDF(cashFlow: CashFlow) {
   // Tabla de flujo de caja mensual
   const tableHead = [['Concepto', ...periods.map(p => MONTH_NAMES[p.month - 1].substring(0, 3)), 'Total Año']];
 
-  const tableBody = [
+  const tableBody: any = [
     // ENTRADAS
     [{ content: 'ENTRADAS DE EFECTIVO', colSpan: periods.length + 2, styles: { fontStyle: 'bold', fillColor: [220, 250, 220], textColor: [0, 100, 0] } }],
     ['Cobros de Ventas', ...periods.map(p => formatCurrency(p.sales_collections)), formatCurrency(yearTotals.salesCollections)],

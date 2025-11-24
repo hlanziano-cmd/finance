@@ -45,9 +45,9 @@ export class CostAnalysisService {
       productDescription: data.product_description || undefined,
       unitPrice: Number(data.unit_price),
       variableCostPerUnit: Number(data.variable_cost_per_unit),
-      variableCostBreakdown: (data.variable_cost_breakdown as CostBreakdownItem[]) || [],
+      variableCostBreakdown: (data.variable_cost_breakdown as unknown as CostBreakdownItem[]) || [],
       monthlyFixedCosts: Number(data.monthly_fixed_costs),
-      fixedCostBreakdown: (data.fixed_cost_breakdown as CostBreakdownItem[]) || [],
+      fixedCostBreakdown: (data.fixed_cost_breakdown as unknown as CostBreakdownItem[]) || [],
       currentMonthlyUnits: data.current_monthly_units || 0,
       productionCapacity: data.production_capacity || undefined,
       fiscalYear: data.fiscal_year,
@@ -146,7 +146,7 @@ export class CostAnalysisService {
       return null;
     }
 
-    return orgUser.organization_id;
+    return (orgUser as any).organization_id;
   }
 
   /**
@@ -230,6 +230,7 @@ export class CostAnalysisService {
 
     const { data, error } = await this.supabase
       .from('cost_analysis')
+      // @ts-ignore - Supabase type inference issue
       .insert(insertData)
       .select()
       .single();
@@ -269,6 +270,7 @@ export class CostAnalysisService {
 
     const { data, error } = await this.supabase
       .from('cost_analysis')
+      // @ts-ignore - Supabase type inference issue
       .update(updateData)
       .eq('id', id)
       .select()

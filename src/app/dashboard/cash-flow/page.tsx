@@ -122,7 +122,7 @@ export default function CashFlowPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {cashFlows.map((cashFlow) => (
+          {(cashFlows || []).map((cashFlow: any) => (
             <Card key={cashFlow.id} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">

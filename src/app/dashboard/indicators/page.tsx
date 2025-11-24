@@ -307,9 +307,9 @@ export default function IndicatorsPage() {
   const handleExportPDF = () => {
     if (!indicators) return;
 
-    const balance = balanceSheets?.find(b => b.id === selectedBalance);
-    const income = incomeStatements?.find(i => i.id === selectedIncome);
-    const cashFlow = selectedCashFlow ? cashFlows?.find(c => c.id === selectedCashFlow) : undefined;
+    const balance = balanceSheets?.data?.find((b: any) => b.id === selectedBalance);
+    const income = incomeStatements?.find((i: any) => i.id === selectedIncome);
+    const cashFlow = selectedCashFlow ? cashFlows?.find((c: any) => c.id === selectedCashFlow) : undefined;
 
     if (!balance || !income) return;
 
@@ -333,8 +333,8 @@ export default function IndicatorsPage() {
       return;
     }
 
-    const balance = balanceSheets?.find(b => b.id === selectedBalance);
-    const income = incomeStatements?.find(i => i.id === selectedIncome);
+    const balance = balanceSheets?.data?.find((b: any) => b.id === selectedBalance);
+    const income = incomeStatements?.find((i: any) => i.id === selectedIncome);
 
     if (!balance) {
       alert('Error: No se encontró el balance seleccionado');
@@ -401,8 +401,8 @@ export default function IndicatorsPage() {
       return;
     }
 
-    const balance = balanceSheets?.find(b => b.id === selectedBalance);
-    const income = incomeStatements?.find(i => i.id === selectedIncome);
+    const balance = balanceSheets?.data?.find((b: any) => b.id === selectedBalance);
+    const income = incomeStatements?.find((i: any) => i.id === selectedIncome);
 
     if (!balance || !income) {
       alert('Error al obtener los documentos seleccionados');
@@ -741,7 +741,7 @@ export default function IndicatorsPage() {
                     className="w-full bg-white border-2 border-gray-400 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-500 transition-colors"
                   >
                     <option value="" className="text-gray-500">Selecciona un balance</option>
-                    {balanceSheets?.map((balance) => (
+                    {balanceSheets?.data?.map((balance: any) => (
                       <option key={balance.id} value={balance.id} className="text-gray-900">
                         {balance.name} - {balance.fiscalYear}
                       </option>
@@ -764,7 +764,7 @@ export default function IndicatorsPage() {
                     className="w-full bg-white border-2 border-gray-400 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-500 transition-colors"
                   >
                     <option value="" className="text-gray-500">Selecciona un estado de resultados</option>
-                    {incomeStatements?.map((income) => (
+                    {incomeStatements?.map((income: any) => (
                       <option key={income.id} value={income.id} className="text-gray-900">
                         {income.name} - {income.fiscal_year}
                       </option>
@@ -787,7 +787,7 @@ export default function IndicatorsPage() {
                     className="w-full bg-white border-2 border-gray-400 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-500 transition-colors"
                   >
                     <option value="" className="text-gray-500">Selecciona un flujo de caja (opcional)</option>
-                    {cashFlows?.map((cashFlow) => (
+                    {cashFlows?.map((cashFlow: any) => (
                       <option key={cashFlow.id} value={cashFlow.id} className="text-gray-900">
                         {cashFlow.name} - {cashFlow.fiscal_year}
                       </option>

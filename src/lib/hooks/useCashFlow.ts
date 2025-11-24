@@ -12,7 +12,7 @@ export function useCashFlows() {
   return useQuery({
     queryKey: ['cash-flows'],
     queryFn: async () => {
-      const result = await service.list();
+      const result: any = await service.list();
       return Array.isArray(result) ? result : result.data || [];
     },
     staleTime: 2 * 60 * 1000, // 2 minutos

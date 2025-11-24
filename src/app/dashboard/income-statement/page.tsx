@@ -17,9 +17,9 @@ export default function IncomeStatementPage() {
   const deleteMutation = useDeleteIncomeStatement();
 
   // Calcular totales
-  const totalRevenue = statements?.reduce((sum, s) => sum + s.revenue, 0) || 0;
-  const totalExpenses = statements?.reduce((sum, s) => sum + (s.cost_of_sales + s.operating_expenses + s.non_operating_expenses), 0) || 0;
-  const totalNetProfit = statements?.reduce((sum, s) => sum + s.net_profit, 0) || 0;
+  const totalRevenue = statements?.reduce((sum: number, s: any) => sum + s.revenue, 0) || 0;
+  const totalExpenses = statements?.reduce((sum: number, s: any) => sum + (s.cost_of_sales + s.operating_expenses + s.non_operating_expenses), 0) || 0;
+  const totalNetProfit = statements?.reduce((sum: number, s: any) => sum + s.net_profit, 0) || 0;
 
   const handleDelete = async (id: string, name: string) => {
     if (confirm(`¿Estás seguro de eliminar el estado de resultados "${name}"?`)) {
@@ -131,7 +131,7 @@ export default function IncomeStatementPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {statements.map((statement) => (
+          {(statements || []).map((statement: any) => (
             <Card key={statement.id} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">

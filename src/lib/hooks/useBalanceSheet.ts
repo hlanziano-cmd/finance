@@ -29,10 +29,7 @@ export function useBalanceSheets(filters?: BalanceSheetFilters) {
 
   return useQuery({
     queryKey: ['balance-sheets', filters],
-    queryFn: async () => {
-      const result = await service.list(filters);
-      return result.data; // Extraer solo el array de datos
-    },
+    queryFn: () => service.list(filters),
     staleTime: 2 * 60 * 1000, // 2 minutos
   });
 }

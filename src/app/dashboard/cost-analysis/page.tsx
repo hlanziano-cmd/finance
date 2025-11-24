@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Eye, Trash2, TrendingUp, DollarSign, Package, Info, ArrowLeft } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, TrendingUp, DollarSign, Package, Info, ArrowLeft } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
@@ -253,10 +253,10 @@ export default function CostAnalysisPage() {
                     <div className={`p-3 rounded-lg ${
                       isProfitable ? 'bg-green-50' : 'bg-red-50'
                     }`}>
-                      <p className="text-xs font-semibold mb-1 ${isProfitable ? 'text-green-700' : 'text-red-700'}">
+                      <p className={`text-xs font-bold mb-1 ${isProfitable ? 'text-green-900' : 'text-red-900'}`}>
                         Ventas Actuales: {analysis.currentMonthlyUnits.toLocaleString()} un/mes
                       </p>
-                      <p className="text-lg font-bold ${isProfitable ? 'text-green-900' : 'text-red-900'}">
+                      <p className={`text-lg font-bold ${isProfitable ? 'text-green-900' : 'text-red-900'}`}>
                         Utilidad: {formatCurrency(calculations.currentMonthlyProfit)}
                       </p>
                       {!isAboveBreakEven && (
@@ -266,12 +266,9 @@ export default function CostAnalysisPage() {
                       )}
                     </div>
 
-                    {/* Period Info */}
-                    <div className="text-xs text-gray-500 flex items-center justify-between pt-2 border-t">
-                      <span>
-                        {formatDate(analysis.periodStart, 'short')} - {formatDate(analysis.periodEnd, 'short')}
-                      </span>
-                      <span>Año {analysis.fiscalYear}</span>
+                    {/* Fiscal Year Info */}
+                    <div className="text-xs text-gray-500 pt-2 border-t text-center">
+                      <span>Año Fiscal {analysis.fiscalYear}</span>
                     </div>
 
                     {/* Actions */}
@@ -283,7 +280,16 @@ export default function CostAnalysisPage() {
                         onClick={() => router.push(`/dashboard/cost-analysis/${analysis.id}`)}
                       >
                         <Eye className="mr-1 h-3 w-3" />
-                        Ver Análisis
+                        Ver
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => router.push(`/dashboard/cost-analysis/${analysis.id}/edit`)}
+                      >
+                        <Edit className="mr-1 h-3 w-3" />
+                        Editar
                       </Button>
                       <Button
                         variant="ghost"

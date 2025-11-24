@@ -321,7 +321,7 @@ export default function CostAnalysisDetailPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-700">Ventas Actuales</p>
+                <p className="text-sm font-bold text-purple-900">Ventas Actuales</p>
                 <p className="text-2xl font-bold text-purple-900">
                   {analysis.currentMonthlyUnits.toLocaleString()} un.
                 </p>
@@ -436,10 +436,35 @@ export default function CostAnalysisDetailPage() {
                   formatter={(value: number) => formatCurrency(value)}
                   labelFormatter={(label) => `${label} unidades`}
                 />
-                <Legend />
-                <Line type="monotone" dataKey="Ingresos" stroke="#10b981" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="Costos Totales" stroke="#ef4444" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="Costos Fijos" stroke="#f97316" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                <Legend
+                  wrapperStyle={{ paddingTop: '20px' }}
+                  iconType="line"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Ingresos"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  dot={false}
+                  name="Ingresos Totales"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Costos Totales"
+                  stroke="#ef4444"
+                  strokeWidth={3}
+                  dot={false}
+                  name="Costos Totales"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Costos Fijos"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={false}
+                  name="Costos Fijos (referencia)"
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -466,6 +491,35 @@ export default function CostAnalysisDetailPage() {
                 {calculations.marginOfSafety.toLocaleString()} unidades
               </p>
               <p className="text-sm text-green-800">{calculations.marginOfSafetyPercentage.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          {/* Interpretación de la Gráfica */}
+          <div className="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+            <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Cómo Interpretar Esta Gráfica
+            </h4>
+            <div className="space-y-2 text-sm text-blue-900">
+              <p>
+                <strong className="text-blue-950">Línea Verde (Ingresos):</strong> Muestra el dinero que recibes al vender diferentes cantidades de unidades. Sube de forma constante porque cada unidad vendida genera el mismo ingreso.
+              </p>
+              <p>
+                <strong className="text-blue-950">Línea Roja (Costos Totales):</strong> Representa todos tus costos (fijos + variables). Comienza en el nivel de tus costos fijos y sube más rápido que los ingresos si tus costos variables son altos.
+              </p>
+              <p>
+                <strong className="text-blue-950">Línea Naranja Punteada (Costos Fijos):</strong> Es tu "piso" de costos - lo mínimo que debes pagar aunque no vendas nada (alquiler, salarios fijos, etc.).
+              </p>
+              <p>
+                <strong className="text-blue-950">Punto de Equilibrio (donde se cruzan las líneas):</strong> Es donde tus ingresos igualan tus costos. A la izquierda de este punto pierdes dinero, a la derecha generas utilidad.
+              </p>
+              <p className="pt-2 border-t border-blue-200">
+                <strong className="text-blue-950">💡 Conclusión:</strong> {
+                  isAboveBreakEven
+                    ? `Estás vendiendo ${analysis.currentMonthlyUnits.toLocaleString()} unidades, que es ${(calculations.marginOfSafetyPercentage).toFixed(0)}% más del punto de equilibrio. Esto significa que generas utilidad y tienes un colchón de seguridad ante caídas en ventas.`
+                    : `Necesitas aumentar tus ventas a ${calculations.breakEvenUnits.toLocaleString()} unidades para dejar de perder dinero. Actualmente vendes ${analysis.currentMonthlyUnits.toLocaleString()} unidades, por lo que te faltan ${(calculations.breakEvenUnits - analysis.currentMonthlyUnits).toLocaleString()} unidades para alcanzar el punto de equilibrio.`
+                }
+              </p>
             </div>
           </div>
         </CardContent>

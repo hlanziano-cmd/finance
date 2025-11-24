@@ -173,7 +173,7 @@ export default function CashFlowDetailPage() {
               <tbody>
                 {periods.map((period) => (
                   <tr key={period.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-3 py-2 font-medium">
+                    <td className="border border-gray-300 px-3 py-2 font-medium text-gray-900">
                       {MONTH_NAMES[period.month - 1]} {period.year}
                     </td>
                     <td className="border border-gray-300 px-3 py-2 text-right text-green-600">

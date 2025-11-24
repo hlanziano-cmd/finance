@@ -174,3 +174,61 @@ export interface CostAnalysisCalculations {
   capacityUtilization?: number;
   maxPotentialProfit?: number;
 }
+
+// Investment Module Types
+export type RiskProfile = 'conservative' | 'moderate' | 'aggressive';
+export type InvestmentType = 'cdt' | 'bonos' | 'acciones' | 'fondos' | 'fiducias';
+
+export interface InvestmentProduct {
+  id: string;
+  name: string;
+  type: InvestmentType;
+  institution: string;
+  minAmount: number;
+  expectedReturn3Months: number; // Tasa anual
+  expectedReturn6Months: number;
+  expectedReturn12Months: number;
+  riskLevel: RiskProfile;
+  liquidity: 'alta' | 'media' | 'baja';
+  description: string;
+  features: string[];
+  lastUpdated: Date;
+}
+
+export interface InvestmentSimulation {
+  id: string;
+  organizationId: string;
+  name: string;
+  initialAmount: number;
+  sourceType: 'cashflow' | 'manual';
+  cashFlowId?: string;
+  riskProfile: RiskProfile;
+  selectedProducts: InvestmentAllocation[];
+  diversificationStrategy?: 'equal' | 'risk-weighted' | 'return-optimized';
+  projections: {
+    threeMonths: InvestmentProjection;
+    sixMonths: InvestmentProjection;
+    twelveMonths: InvestmentProjection;
+  };
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export interface InvestmentAllocation {
+  productId: string;
+  productName: string;
+  percentage: number;
+  amount: number;
+  expectedReturn: number;
+}
+
+export interface InvestmentProjection {
+  period: string;
+  totalInvested: number;
+  expectedReturn: number;
+  totalAmount: number;
+  earnings: number;
+  effectiveRate: number;
+}

@@ -77,7 +77,7 @@ export default function CashFlowPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Último Año</p>
                   <p className="mt-2 text-2xl font-bold text-green-600">
-                    {Math.max(...cashFlows.map(cf => cf.fiscal_year))}
+                    {Math.max(...(cashFlows || []).map((cf: any) => cf.fiscal_year))}
                   </p>
                   <p className="mt-1 text-xs text-gray-500">Año fiscal más reciente</p>
                 </div>

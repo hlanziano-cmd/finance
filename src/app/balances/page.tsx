@@ -2,6 +2,9 @@
 'use client';
 
 import { useState } from 'react';
+
+// Disable static generation for this page
+export const dynamic = 'force-dynamic';
 import { useRouter } from 'next/navigation';
 import { Plus, FileText, Eye, Edit, Trash2, Download } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';

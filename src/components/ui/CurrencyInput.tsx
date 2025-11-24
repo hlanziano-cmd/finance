@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { formatInputValue, parseColombianNumber } from '@/src/lib/utils/number-format';
 
 interface CurrencyInputProps {
-  id: string;
+  id?: string;
   value: number;
   onChange: (value: number) => void;
   placeholder?: string;

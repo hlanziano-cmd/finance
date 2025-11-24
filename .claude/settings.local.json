@@ -12,7 +12,13 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
-      "Bash(timeout /t 10)"
+      "Bash(timeout /t 10)",
+      "Bash(dir:*)",
+      "Bash(powershell -Command \"(Get-Content ''C:\\Users\\alanz\\Desktop\\Fluxi Finance\\diagnostico-financiero\\src\\app\\dashboard\\indicators\\page.tsx'').Count\")",
+      "Bash(npx supabase:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(powershell -Command \"(Get-Content ''C:\\Users\\alanz\\Desktop\\Fluxi Finance\\diagnostico-financiero\\src\\types\\database.types.ts'').Count\")",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

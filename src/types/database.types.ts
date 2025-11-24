@@ -168,6 +168,74 @@ export interface Database {
           updated_at?: string
         }
       }
+      cost_analysis: {
+        Row: {
+          id: string
+          organization_id: string | null
+          product_name: string
+          product_description: string | null
+          unit_price: number
+          variable_cost_per_unit: number
+          variable_cost_breakdown: Json
+          monthly_fixed_costs: number
+          fixed_cost_breakdown: Json
+          current_monthly_units: number
+          production_capacity: number | null
+          fiscal_year: number
+          period_start: string
+          period_end: string
+          status: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+          created_by: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id?: string | null
+          product_name: string
+          product_description?: string | null
+          unit_price: number
+          variable_cost_per_unit?: number
+          variable_cost_breakdown?: Json
+          monthly_fixed_costs?: number
+          fixed_cost_breakdown?: Json
+          current_monthly_units?: number
+          production_capacity?: number | null
+          fiscal_year: number
+          period_start: string
+          period_end: string
+          status?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string | null
+          product_name?: string
+          product_description?: string | null
+          unit_price?: number
+          variable_cost_per_unit?: number
+          variable_cost_breakdown?: Json
+          monthly_fixed_costs?: number
+          fixed_cost_breakdown?: Json
+          current_monthly_units?: number
+          production_capacity?: number | null
+          fiscal_year?: number
+          period_start?: string
+          period_end?: string
+          status?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string
+          updated_by?: string | null
+        }
+      }
       // ... más tablas
     }
     Views: {

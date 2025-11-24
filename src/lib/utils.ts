@@ -38,9 +38,17 @@ export function formatPercentage(value: number, decimals: number = 2): string {
  */
 export function formatDate(
   date: Date | string,
-  format: 'short' | 'long' | 'full' = 'short'
+  format: 'short' | 'long' | 'full' | 'input' = 'short'
 ): string {
   const d = typeof date === 'string' ? new Date(date) : date;
+
+  // Formato especial para inputs HTML de tipo date
+  if (format === 'input') {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   const formats = {
     short: { year: 'numeric', month: '2-digit', day: '2-digit' } as const,
@@ -87,4 +95,35 @@ export function getHealthScoreColor(score: number): string {
  */
 export function capitalize(str: string): string {
   return str.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/**
+ * Formatea un número para input con separador de miles punto y decimal coma
+ * Ejemplo: 1234567.89 -> "1.234.567,89"
+ */
+export function formatNumberInput(value: number | string): string {
+  if (value === '' || value === null || value === undefined) return '';
+
+  const numValue = typeof value === 'string' ? parseFloat(value.replace(/\./g, '').replace(',', '.')) : value;
+  if (isNaN(numValue)) return '';
+
+  const parts = numValue.toFixed(2).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const decimalPart = parts[1];
+
+  return decimalPart && parseFloat(decimalPart) > 0
+    ? `${integerPart},${decimalPart}`
+    : integerPart;
+}
+
+/**
+ * Parsea un número formateado con punto como separador de miles y coma como decimal
+ * Ejemplo: "1.234.567,89" -> 1234567.89
+ */
+export function parseNumberInput(value: string): number {
+  if (!value) return 0;
+  // Elimina puntos (separador de miles) y reemplaza coma por punto (decimal)
+  const normalized = value.replace(/\./g, '').replace(',', '.');
+  const parsed = parseFloat(normalized);
+  return isNaN(parsed) ? 0 : parsed;
 }

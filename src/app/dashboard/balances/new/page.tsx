@@ -3,12 +3,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Info, Plus, X } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { LabelWithTooltip } from '@/src/components/ui/Tooltip';
 import { CurrencyInput } from '@/src/components/ui/CurrencyInput';
-import { useCreateBalanceSheet } from '@/src/lib/hooks/useBalanceSheet';
+import { useCreateBalanceSheet, useAddBalanceSheetItem } from '@/src/lib/hooks/useBalanceSheet';
 import {
   ACTIVO_CORRIENTE_SIMPLE,
   ACTIVO_NO_CORRIENTE_SIMPLE,
@@ -23,6 +23,8 @@ import { formatCurrency } from '@/src/lib/utils';
 export default function NewBalancePage() {
   const router = useRouter();
   const createBalanceMutation = useCreateBalanceSheet();
+  const [createdBalanceId, setCreatedBalanceId] = useState<string | null>(null);
+  const addItemMutation = useAddBalanceSheetItem(createdBalanceId || '');
 
   // Datos básicos del balance
   const [balanceName, setBalanceName] = useState('');
@@ -33,28 +35,43 @@ export default function NewBalancePage() {
   // Valores de las cuentas
   const [accountValues, setAccountValues] = useState<Record<string, number>>({});
 
-  // Calcular totales
-  const totalActivoCorriente = ACTIVO_CORRIENTE_SIMPLE.reduce(
+  // Cuentas adicionales por categoría
+  const [customAccounts, setCustomAccounts] = useState<{
+    activoCorriente: SimplifiedAccount[];
+    activoNoCorriente: SimplifiedAccount[];
+    pasivoCorriente: SimplifiedAccount[];
+    pasivoNoCorriente: SimplifiedAccount[];
+    patrimonio: SimplifiedAccount[];
+  }>({
+    activoCorriente: [],
+    activoNoCorriente: [],
+    pasivoCorriente: [],
+    pasivoNoCorriente: [],
+    patrimonio: [],
+  });
+
+  // Calcular totales incluyendo cuentas personalizadas
+  const totalActivoCorriente = [...ACTIVO_CORRIENTE_SIMPLE, ...customAccounts.activoCorriente].reduce(
     (sum, acc) => sum + (accountValues[acc.code] || 0),
     0
   );
-  const totalActivoNoCorriente = ACTIVO_NO_CORRIENTE_SIMPLE.reduce(
+  const totalActivoNoCorriente = [...ACTIVO_NO_CORRIENTE_SIMPLE, ...customAccounts.activoNoCorriente].reduce(
     (sum, acc) => sum + (accountValues[acc.code] || 0),
     0
   );
   const totalActivo = totalActivoCorriente + totalActivoNoCorriente;
 
-  const totalPasivoCorriente = PASIVO_CORRIENTE_SIMPLE.reduce(
+  const totalPasivoCorriente = [...PASIVO_CORRIENTE_SIMPLE, ...customAccounts.pasivoCorriente].reduce(
     (sum, acc) => sum + (accountValues[acc.code] || 0),
     0
   );
-  const totalPasivoNoCorriente = PASIVO_NO_CORRIENTE_SIMPLE.reduce(
+  const totalPasivoNoCorriente = [...PASIVO_NO_CORRIENTE_SIMPLE, ...customAccounts.pasivoNoCorriente].reduce(
     (sum, acc) => sum + (accountValues[acc.code] || 0),
     0
   );
   const totalPasivo = totalPasivoCorriente + totalPasivoNoCorriente;
 
-  const totalPatrimonio = PATRIMONIO_SIMPLE.reduce(
+  const totalPatrimonio = [...PATRIMONIO_SIMPLE, ...customAccounts.patrimonio].reduce(
     (sum, acc) => sum + (accountValues[acc.code] || 0),
     0
   );
@@ -64,6 +81,38 @@ export default function NewBalancePage() {
 
   const handleAccountChange = (code: string, value: number) => {
     setAccountValues(prev => ({ ...prev, [code]: value }));
+  };
+
+  const handleAddAccount = (category: keyof typeof customAccounts) => {
+    const accountName = prompt('Nombre de la cuenta:');
+    if (!accountName) return;
+
+    const accountCode = `CUSTOM_${category}_${Date.now()}`;
+    const newAccount: SimplifiedAccount = {
+      code: accountCode,
+      name: accountName,
+      description: 'Cuenta personalizada',
+      examples: [],
+    };
+
+    setCustomAccounts(prev => ({
+      ...prev,
+      [category]: [...prev[category], newAccount],
+    }));
+  };
+
+  const handleRemoveAccount = (category: keyof typeof customAccounts, code: string) => {
+    setCustomAccounts(prev => ({
+      ...prev,
+      [category]: prev[category].filter(acc => acc.code !== code),
+    }));
+
+    // Eliminar el valor de la cuenta también
+    setAccountValues(prev => {
+      const newValues = { ...prev };
+      delete newValues[code];
+      return newValues;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,12 +129,50 @@ export default function NewBalancePage() {
     }
 
     try {
-      await createBalanceMutation.mutateAsync({
+      // 1. Crear el balance
+      const newBalance = await createBalanceMutation.mutateAsync({
         name: balanceName,
         periodStart: new Date(periodStart),
         periodEnd: new Date(periodEnd),
         fiscalYear,
       });
+
+      // 2. Guardar todos los items con valor mayor a 0
+      const allAccounts = [
+        ...ACTIVO_CORRIENTE_SIMPLE.map(acc => ({ ...acc, category: 'activo' as const, subcategory: 'Activo Corriente' })),
+        ...ACTIVO_NO_CORRIENTE_SIMPLE.map(acc => ({ ...acc, category: 'activo' as const, subcategory: 'Activo No Corriente' })),
+        ...customAccounts.activoCorriente.map(acc => ({ ...acc, category: 'activo' as const, subcategory: 'Activo Corriente' })),
+        ...customAccounts.activoNoCorriente.map(acc => ({ ...acc, category: 'activo' as const, subcategory: 'Activo No Corriente' })),
+        ...PASIVO_CORRIENTE_SIMPLE.map(acc => ({ ...acc, category: 'pasivo' as const, subcategory: 'Pasivo Corriente' })),
+        ...PASIVO_NO_CORRIENTE_SIMPLE.map(acc => ({ ...acc, category: 'pasivo' as const, subcategory: 'Pasivo No Corriente' })),
+        ...customAccounts.pasivoCorriente.map(acc => ({ ...acc, category: 'pasivo' as const, subcategory: 'Pasivo Corriente' })),
+        ...customAccounts.pasivoNoCorriente.map(acc => ({ ...acc, category: 'pasivo' as const, subcategory: 'Pasivo No Corriente' })),
+        ...PATRIMONIO_SIMPLE.map(acc => ({ ...acc, category: 'patrimonio' as const, subcategory: 'Patrimonio' })),
+        ...customAccounts.patrimonio.map(acc => ({ ...acc, category: 'patrimonio' as const, subcategory: 'Patrimonio' })),
+      ];
+
+      // Crear servicio para agregar items
+      const { createClient } = await import('@/src/lib/supabase/client');
+      const supabase = createClient();
+      const { BalanceSheetService } = await import('@/src/services/balance-sheet.service');
+      const service = new BalanceSheetService(supabase);
+
+      // Agregar items con valor > 0
+      for (const account of allAccounts) {
+        const value = accountValues[account.code] || 0;
+        if (value > 0) {
+          await service.addItem(newBalance.id, {
+            organizationId: newBalance.organizationId,
+            category: account.category,
+            subcategory: account.subcategory,
+            accountName: account.name,
+            accountCode: account.code,
+            amount: value,
+            notes: undefined,
+            orderIndex: 0,
+          });
+        }
+      }
 
       router.push('/dashboard/balances');
     } catch (error) {
@@ -96,40 +183,75 @@ export default function NewBalancePage() {
 
   const renderAccountSection = (
     title: string,
-    accounts: SimplifiedAccount[],
+    baseAccounts: SimplifiedAccount[],
+    customAccountsForCategory: SimplifiedAccount[],
+    category: keyof typeof customAccounts,
     total: number,
     bgColor: string = 'bg-gray-50'
-  ) => (
-    <div className={`rounded-lg ${bgColor} p-4`}>
-      <h3 className="mb-3 text-lg font-semibold text-gray-900">{title}</h3>
-      <div className="space-y-3">
-        {accounts.map((account) => (
-          <div key={account.code} className="flex items-start gap-2">
-            <div className="flex-1">
-              <LabelWithTooltip
-                label={account.name}
-                tooltip={account.description}
-                examples={account.examples}
-                htmlFor={`account-${account.code}`}
-              />
-              <div className="mt-1">
-                <CurrencyInput
-                  id={`account-${account.code}`}
-                  value={accountValues[account.code] || 0}
-                  onChange={(value) => handleAccountChange(account.code, value)}
-                  placeholder="0"
-                />
+  ) => {
+    const allAccounts = [...baseAccounts, ...customAccountsForCategory];
+
+    return (
+      <div className={`rounded-lg ${bgColor} p-4`}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => handleAddAccount(category)}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Agregar cuenta
+          </Button>
+        </div>
+        <div className="space-y-3">
+          {allAccounts.map((account) => {
+            const isCustom = account.code.startsWith('CUSTOM_');
+            return (
+              <div key={account.code} className="flex items-start gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <LabelWithTooltip
+                      label={account.name}
+                      tooltip={account.description}
+                      examples={account.examples}
+                      htmlFor={`account-${account.code}`}
+                    />
+                    {isCustom && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveAccount(category, account.code)}
+                        className="p-1 h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Eliminar cuenta"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="mt-1">
+                    <CurrencyInput
+                      id={`account-${account.code}`}
+                      value={accountValues[account.code] || 0}
+                      onChange={(value) => handleAccountChange(account.code, value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center justify-between border-t border-gray-300 pt-3">
+          <span className="font-semibold text-gray-900">Total:</span>
+          <span className="text-lg font-bold text-gray-900">{formatCurrency(total)}</span>
+        </div>
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-gray-300 pt-3">
-        <span className="font-semibold text-gray-900">Total:</span>
-        <span className="text-lg font-bold text-gray-900">{formatCurrency(total)}</span>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -233,8 +355,8 @@ export default function NewBalancePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {renderAccountSection('Activo Corriente (Corto Plazo)', ACTIVO_CORRIENTE_SIMPLE, totalActivoCorriente, 'bg-blue-50')}
-            {renderAccountSection('Activo No Corriente (Largo Plazo)', ACTIVO_NO_CORRIENTE_SIMPLE, totalActivoNoCorriente, 'bg-blue-50')}
+            {renderAccountSection('Activo Corriente (Corto Plazo)', ACTIVO_CORRIENTE_SIMPLE, customAccounts.activoCorriente, 'activoCorriente', totalActivoCorriente, 'bg-blue-50')}
+            {renderAccountSection('Activo No Corriente (Largo Plazo)', ACTIVO_NO_CORRIENTE_SIMPLE, customAccounts.activoNoCorriente, 'activoNoCorriente', totalActivoNoCorriente, 'bg-blue-50')}
 
             <div className="rounded-lg bg-blue-100 p-4">
               <div className="flex items-center justify-between">
@@ -254,8 +376,8 @@ export default function NewBalancePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {renderAccountSection('Pasivo Corriente (Corto Plazo)', PASIVO_CORRIENTE_SIMPLE, totalPasivoCorriente, 'bg-red-50')}
-            {renderAccountSection('Pasivo No Corriente (Largo Plazo)', PASIVO_NO_CORRIENTE_SIMPLE, totalPasivoNoCorriente, 'bg-red-50')}
+            {renderAccountSection('Pasivo Corriente (Corto Plazo)', PASIVO_CORRIENTE_SIMPLE, customAccounts.pasivoCorriente, 'pasivoCorriente', totalPasivoCorriente, 'bg-red-50')}
+            {renderAccountSection('Pasivo No Corriente (Largo Plazo)', PASIVO_NO_CORRIENTE_SIMPLE, customAccounts.pasivoNoCorriente, 'pasivoNoCorriente', totalPasivoNoCorriente, 'bg-red-50')}
 
             <div className="rounded-lg bg-red-100 p-4">
               <div className="flex items-center justify-between">
@@ -275,7 +397,7 @@ export default function NewBalancePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {renderAccountSection('Patrimonio', PATRIMONIO_SIMPLE, totalPatrimonio, 'bg-green-50')}
+            {renderAccountSection('Patrimonio', PATRIMONIO_SIMPLE, customAccounts.patrimonio, 'patrimonio', totalPatrimonio, 'bg-green-50')}
 
             <div className="rounded-lg bg-green-100 p-4">
               <div className="flex items-center justify-between">
@@ -287,57 +409,38 @@ export default function NewBalancePage() {
         </Card>
 
         {/* Validación de Ecuación Contable */}
-        <Card className={validation.isValid ? 'border-green-500' : 'border-red-500'}>
+        <Card className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-2 border-indigo-200">
           <CardContent className="pt-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                {validation.isValid ? (
-                  <CheckCircle2 className="h-6 w-6 text-green-600" />
-                ) : (
-                  <AlertCircle className="h-6 w-6 text-red-600" />
-                )}
-                <h3 className="text-lg font-semibold">Ecuación Contable</h3>
-              </div>
-
-              <div className="rounded-lg bg-gray-50 p-4">
-                <p className="mb-3 text-sm font-medium text-gray-600">
-                  ACTIVO = PASIVO + PATRIMONIO
-                </p>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span>Activo:</span>
-                    <span className="font-mono">{formatCurrency(validation.totalActivo)}</span>
+            <div className="flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-800 mb-3">Ecuación Contable</p>
+                <div className="flex items-center gap-4 text-lg font-bold">
+                  <div className="bg-emerald-600 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+                    <p className="text-xs font-semibold mb-1 uppercase tracking-wide">ACTIVOS</p>
+                    <p className="text-xl">{formatCurrency(validation.totalActivo)}</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Pasivo + Patrimonio:</span>
-                    <span className="font-mono">
-                      {formatCurrency(validation.totalPasivo + validation.totalPatrimonio)}
-                    </span>
+                  <span className="text-gray-800 text-3xl font-black">=</span>
+                  <div className="bg-rose-600 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+                    <p className="text-xs font-semibold mb-1 uppercase tracking-wide">PASIVOS</p>
+                    <p className="text-xl">{formatCurrency(validation.totalPasivo)}</p>
                   </div>
-                  {!validation.isValid && (
-                    <div className="flex justify-between border-t border-gray-300 pt-1 text-red-600">
-                      <span>Diferencia:</span>
-                      <span className="font-mono font-semibold">
-                        {formatCurrency(validation.difference)}
-                      </span>
-                    </div>
-                  )}
+                  <span className="text-gray-800 text-3xl font-black">+</span>
+                  <div className="bg-blue-600 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+                    <p className="text-xs font-semibold mb-1 uppercase tracking-wide">PATRIMONIO</p>
+                    <p className="text-xl">{formatCurrency(validation.totalPatrimonio)}</p>
+                  </div>
                 </div>
-              </div>
-
-              <p className={`text-sm ${validation.isValid ? 'text-green-600' : 'text-red-600'}`}>
-                {validation.message}
-              </p>
-
-              {!validation.isValid && (
-                <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-                  <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  <p>
-                    El balance debe estar cuadrado antes de guardarlo. Revisa que el total de activos
-                    sea igual a la suma de pasivos y patrimonio.
+                {!validation.isValid && (
+                  <p className="mt-3 text-sm text-red-700 font-semibold bg-red-100 px-4 py-2 rounded-lg inline-block">
+                    ⚠️ Advertencia: La ecuación contable no está balanceada (diferencia: {formatCurrency(validation.difference)})
                   </p>
-                </div>
-              )}
+                )}
+                {validation.isValid && (
+                  <p className="mt-3 text-sm text-green-700 font-semibold bg-green-100 px-4 py-2 rounded-lg inline-block">
+                    ✓ La ecuación contable está balanceada correctamente
+                  </p>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

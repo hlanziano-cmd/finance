@@ -1,24 +1,20 @@
 // src/app/dashboard/balances/page.tsx
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, FileText, Eye, Edit, Trash2, Download } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
-import { Badge } from '@/src/components/ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/src/components/ui/Table';
 import { useBalanceSheets, useDeleteBalanceSheet } from '@/src/lib/hooks/useBalanceSheet';
-import { formatDate, formatCurrency } from '@/src/lib/utils';
+import { formatDate } from '@/src/lib/utils';
 
 export default function BalancesPage() {
   const router = useRouter();
-  const [page, setPage] = useState(1);
-  const limit = 20;
-  const { data, isLoading } = useBalanceSheets({ limit, offset: (page - 1) * limit });
+  const { data: balances, isLoading } = useBalanceSheets();
   const deleteBalanceMutation = useDeleteBalanceSheet();
 
-  const balances = data?.data || [];
+  const balancesList = balances || [];
 
   const handleDelete = async (id: string) => {
     if (confirm('¿Estás seguro de eliminar este balance? Esta acción no se puede deshacer.')) {
@@ -26,16 +22,10 @@ export default function BalancesPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      draft: 'warning',
-      final: 'success',
-      archived: 'default',
-    } as const;
-    return variants[status as keyof typeof variants] || 'default';
+  const handleExport = async (balanceId: string) => {
+    // Redirigir a la página de detalle donde se puede descargar el PDF
+    router.push(`/dashboard/balances/${balanceId}`);
   };
-
-  const totalPages = data?.pagination ? Math.ceil(data.pagination.totalItems / limit) : 0;
 
   return (
     <div className="space-y-6">
@@ -54,14 +44,14 @@ export default function BalancesPage() {
       </div>
 
       {/* Summary Cards */}
-      {balances.length > 0 && (
+      {balancesList.length > 0 && (
         <div className="grid gap-6 md:grid-cols-3">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total de Balances</p>
-                  <p className="mt-2 text-3xl font-bold text-gray-900">{data?.pagination?.totalItems || 0}</p>
+                  <p className="mt-2 text-3xl font-bold text-gray-900">{balancesList.length}</p>
                 </div>
                 <FileText className="h-8 w-8 text-blue-600" />
               </div>
@@ -73,7 +63,7 @@ export default function BalancesPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Borradores</p>
                   <p className="mt-2 text-3xl font-bold text-gray-900">
-                    {balances.filter(b => b.status === 'draft').length}
+                    {balancesList.filter(b => b.status === 'draft').length}
                   </p>
                 </div>
                 <Edit className="h-8 w-8 text-amber-600" />
@@ -86,7 +76,7 @@ export default function BalancesPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Finalizados</p>
                   <p className="mt-2 text-3xl font-bold text-gray-900">
-                    {balances.filter(b => b.status === 'final').length}
+                    {balancesList.filter(b => b.status === 'final').length}
                   </p>
                 </div>
                 <FileText className="h-8 w-8 text-green-600" />
@@ -112,7 +102,7 @@ export default function BalancesPage() {
                 <p className="mt-2 text-sm text-gray-500">Cargando balances...</p>
               </div>
             </div>
-          ) : balances.length === 0 ? (
+          ) : balancesList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FileText className="h-12 w-12 text-gray-400" />
               <h3 className="mt-4 text-lg font-semibold text-gray-900">
@@ -133,28 +123,18 @@ export default function BalancesPage() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Período</TableHead>
                   <TableHead>Año Fiscal</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Total Activos</TableHead>
                   <TableHead>Última modificación</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {balances.map((balance) => (
+                {balancesList.map((balance) => (
                   <TableRow key={balance.id}>
-                    <TableCell className="font-medium">{balance.name}</TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="font-medium text-gray-900">{balance.name}</TableCell>
+                    <TableCell className="text-sm text-gray-700">
                       {formatDate(balance.periodStart, 'short')} - {formatDate(balance.periodEnd, 'short')}
                     </TableCell>
-                    <TableCell>{balance.fiscalYear}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadge(balance.status)}>
-                        {balance.status === 'draft' ? 'Borrador' : balance.status === 'final' ? 'Finalizado' : 'Archivado'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {balance.totals ? formatCurrency(balance.totals.totalActivo) : '-'}
-                    </TableCell>
+                    <TableCell className="text-gray-900">{balance.fiscalYear}</TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {formatDate(balance.updatedAt || balance.createdAt, 'short')}
                     </TableCell>
@@ -181,8 +161,8 @@ export default function BalancesPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="Exportar"
-                          onClick={() => alert('La función de exportar estará disponible próximamente')}
+                          title="Exportar PDF"
+                          onClick={() => handleExport(balance.id)}
                         >
                           <Download className="h-4 w-4 text-purple-600" />
                         </Button>
@@ -205,36 +185,6 @@ export default function BalancesPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Pagination */}
-      {balances.length > 0 && data?.pagination && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            Mostrando {(page - 1) * limit + 1} - {Math.min(page * limit, data.pagination.totalItems)} de {data.pagination.totalItems} balances
-          </p>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!data.pagination.hasPreviousPage}
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-            >
-              Anterior
-            </Button>
-            <span className="text-sm text-gray-600">
-              Página {page} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!data.pagination.hasNextPage}
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

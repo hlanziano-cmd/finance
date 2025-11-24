@@ -29,7 +29,10 @@ export function useBalanceSheets(filters?: BalanceSheetFilters) {
 
   return useQuery({
     queryKey: ['balance-sheets', filters],
-    queryFn: () => service.list(filters),
+    queryFn: async () => {
+      const result = await service.list(filters);
+      return result.data; // Extraer solo el array de datos
+    },
     staleTime: 2 * 60 * 1000, // 2 minutos
   });
 }
@@ -120,6 +123,59 @@ export function useFinalizeBalanceSheet() {
     },
     onError: (error: Error) => {
       toast.error(`Error al finalizar: ${error.message}`);
+    },
+  });
+}
+
+// Hooks para manejo de items de balance
+export function useAddBalanceSheetItem(balanceSheetId: string) {
+  const supabase = useSupabase();
+  const queryClient = useQueryClient();
+  const service = new BalanceSheetService(supabase);
+
+  return useMutation({
+    mutationFn: (item: any) => service.addItem(balanceSheetId, item),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['balance-sheet', balanceSheetId] });
+      toast.success('Cuenta agregada');
+    },
+    onError: (error: Error) => {
+      toast.error(`Error al agregar cuenta: ${error.message}`);
+    },
+  });
+}
+
+export function useUpdateBalanceSheetItem(balanceSheetId: string) {
+  const supabase = useSupabase();
+  const queryClient = useQueryClient();
+  const service = new BalanceSheetService(supabase);
+
+  return useMutation({
+    mutationFn: ({ itemId, updates }: { itemId: string; updates: any }) =>
+      service.updateItem(itemId, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['balance-sheet', balanceSheetId] });
+      toast.success('Cuenta actualizada');
+    },
+    onError: (error: Error) => {
+      toast.error(`Error al actualizar cuenta: ${error.message}`);
+    },
+  });
+}
+
+export function useDeleteBalanceSheetItem(balanceSheetId: string) {
+  const supabase = useSupabase();
+  const queryClient = useQueryClient();
+  const service = new BalanceSheetService(supabase);
+
+  return useMutation({
+    mutationFn: (itemId: string) => service.deleteItem(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['balance-sheet', balanceSheetId] });
+      toast.success('Cuenta eliminada');
+    },
+    onError: (error: Error) => {
+      toast.error(`Error al eliminar cuenta: ${error.message}`);
     },
   });
 }

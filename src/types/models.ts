@@ -111,3 +111,66 @@ export interface OrganizationMembership {
   status: 'active' | 'inactive' | 'pending';
   permissions: string[];
 }
+
+// Cost Analysis Models
+export interface CostBreakdownItem {
+  name: string;
+  amount: number;
+}
+
+export interface CostAnalysis {
+  id: string;
+  organizationId: string | null;
+  productName: string;
+  productDescription?: string;
+
+  // Pricing
+  unitPrice: number;
+
+  // Variable Costs
+  variableCostPerUnit: number;
+  variableCostBreakdown: CostBreakdownItem[];
+
+  // Fixed Costs
+  monthlyFixedCosts: number;
+  fixedCostBreakdown: CostBreakdownItem[];
+
+  // Production/Sales Data
+  currentMonthlyUnits: number;
+  productionCapacity?: number;
+
+  // Metadata
+  fiscalYear: number;
+  periodStart: Date;
+  periodEnd: Date;
+  status: 'draft' | 'final';
+  notes?: string;
+
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  updatedBy?: string;
+}
+
+export interface CostAnalysisCalculations {
+  // Contribution Margin
+  contributionMarginPerUnit: number;
+  contributionMarginRatio: number;
+  totalContributionMargin: number;
+
+  // Break-even Analysis
+  breakEvenUnits: number;
+  breakEvenRevenue: number;
+  marginOfSafety: number;
+  marginOfSafetyPercentage: number;
+
+  // Profitability
+  currentMonthlyProfit: number;
+  currentMonthlyRevenue: number;
+  currentMonthlyTotalCosts: number;
+  operatingLeverage: number;
+
+  // Capacity Analysis
+  capacityUtilization?: number;
+  maxPotentialProfit?: number;
+}

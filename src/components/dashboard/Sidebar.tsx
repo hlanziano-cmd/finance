@@ -8,14 +8,18 @@ import {
   TrendingUp,
   Settings,
   LogOut,
-  BarChart3
+  BarChart3,
+  Coins,
+  Calculator
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
 const navigation = [
   { name: 'Balance General', href: '/dashboard/balances', icon: FileText },
   { name: 'Estado de Resultados', href: '/dashboard/income-statement', icon: BarChart3 },
+  { name: 'Flujo de Caja', href: '/dashboard/cash-flow', icon: Coins },
   { name: 'Indicadores', href: '/dashboard/indicators', icon: TrendingUp },
+  { name: 'Análisis de Costos', href: '/dashboard/cost-analysis', icon: Calculator },
   { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
 ];
 

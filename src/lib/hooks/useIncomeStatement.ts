@@ -11,7 +11,10 @@ export function useIncomeStatements() {
 
   return useQuery({
     queryKey: ['income-statements'],
-    queryFn: () => service.list(),
+    queryFn: async () => {
+      const result = await service.list();
+      return Array.isArray(result) ? result : result.data || [];
+    },
     staleTime: 2 * 60 * 1000, // 2 minutos
   });
 }

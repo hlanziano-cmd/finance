@@ -387,7 +387,7 @@ export default function NewInvestmentPage() {
                     type="number"
                     value={manualAmount}
                     onChange={(e) => setManualAmount(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="0"
                     min="0"
                   />
@@ -415,7 +415,7 @@ export default function NewInvestmentPage() {
                   <select
                     value={selectedCashFlowId}
                     onChange={(e) => setSelectedCashFlowId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                   >
                     <option value="">Selecciona un flujo de caja</option>
                     {cashFlows?.map(cf => (
@@ -427,12 +427,33 @@ export default function NewInvestmentPage() {
                 </div>
               )}
 
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm text-blue-700 font-semibold">Monto de Inversión</p>
-                <p className="text-2xl font-bold text-blue-900">
-                  {formatCurrency(investmentAmount)}
-                </p>
-              </div>
+              {sourceType === 'cashflow' && selectedCashFlowId && investmentAmount <= 0 ? (
+                <div className="bg-red-50 border-2 border-red-300 p-4 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <p className="text-sm font-bold text-red-900">Sin recursos disponibles</p>
+                  </div>
+                  <p className="text-xs text-red-700">
+                    El flujo de caja seleccionado no tiene un saldo final positivo disponible para invertir.
+                  </p>
+                </div>
+              ) : (
+                <div className={`p-3 rounded-lg border-2 ${investmentAmount > 0 ? 'bg-green-50 border-green-300' : 'bg-blue-50 border-blue-300'}`}>
+                  <p className={`text-sm font-semibold ${investmentAmount > 0 ? 'text-green-700' : 'text-blue-700'}`}>
+                    Monto Disponible para Inversión
+                  </p>
+                  <p className={`text-2xl font-bold ${investmentAmount > 0 ? 'text-green-900' : 'text-blue-900'}`}>
+                    {formatCurrency(investmentAmount)}
+                  </p>
+                  {sourceType === 'cashflow' && selectedCashFlowId && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Saldo final del flujo de caja seleccionado
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -598,7 +619,7 @@ export default function NewInvestmentPage() {
 
                       {isSelected && !useDiversification && (
                         <div className="mt-3">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-semibold text-gray-900 mb-1">
                             Porcentaje de Asignación
                           </label>
                           <input
@@ -610,7 +631,7 @@ export default function NewInvestmentPage() {
                                 [product.id]: parseFloat(e.target.value) || 0
                               });
                             }}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-2 py-1 text-sm border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-gray-900 font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder="0"
                             min="0"
                             max="100"

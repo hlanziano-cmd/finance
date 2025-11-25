@@ -41,6 +41,30 @@ function TooltipCard({ title, description, onClose }: TooltipCardProps) {
   );
 }
 
+// Format number with thousands separator (.) and decimal separator (,)
+function formatNumberInput(value: string): string {
+  // Remove all non-digit characters except comma
+  const cleanValue = value.replace(/[^\d,]/g, '');
+
+  // Split by comma to separate integer and decimal parts
+  const parts = cleanValue.split(',');
+  const integerPart = parts[0];
+  const decimalPart = parts[1];
+
+  // Add thousands separator (.)
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  // Return formatted value
+  return decimalPart !== undefined ? `${formattedInteger},${decimalPart}` : formattedInteger;
+}
+
+// Parse formatted number to float
+function parseFormattedNumber(value: string): number {
+  // Remove thousands separator (.) and replace decimal separator (,) with (.)
+  const cleanValue = value.replace(/\./g, '').replace(',', '.');
+  return parseFloat(cleanValue) || 0;
+}
+
 export default function NewInvestmentPage() {
   const router = useRouter();
   const supabase = useSupabase();
@@ -79,7 +103,7 @@ export default function NewInvestmentPage() {
         // Only return if positive, otherwise 0
         return finalBalance > 0 ? finalBalance : 0;
       })()
-    : parseFloat(manualAmount) || 0;
+    : parseFormattedNumber(manualAmount);
 
   // Get diversified portfolio
   const { data: diversifiedPortfolio } = useDiversifiedPortfolio(
@@ -384,13 +408,17 @@ export default function NewInvestmentPage() {
                     Monto a Invertir (COP)
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={manualAmount}
-                    onChange={(e) => setManualAmount(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    onChange={(e) => {
+                      const formatted = formatNumberInput(e.target.value);
+                      setManualAmount(formatted);
+                    }}
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                     placeholder="0"
-                    min="0"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Formato: 1.000.000,00</p>
                 </div>
               ) : (
                 <div className="relative">

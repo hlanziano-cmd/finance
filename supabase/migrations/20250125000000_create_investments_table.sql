@@ -56,11 +56,7 @@ DO $$ BEGIN
       ON investment_simulations
       FOR INSERT
       WITH CHECK (
-        organization_id IN (
-          SELECT organization_id
-          FROM organization_users
-          WHERE user_id = auth.uid()
-        )
+        created_by = auth.uid()
       );
   END IF;
 END $$;

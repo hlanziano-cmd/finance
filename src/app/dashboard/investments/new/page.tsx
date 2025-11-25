@@ -70,16 +70,14 @@ export default function NewInvestmentPage() {
   const investmentAmount = sourceType === 'cashflow' && selectedCashFlowId
     ? (() => {
         const cashFlow = cashFlows?.find(cf => cf.id === selectedCashFlowId);
-        if (!cashFlow || !cashFlow.periods) return 0;
+        if (!cashFlow || !cashFlow.periods || cashFlow.periods.length === 0) return 0;
 
-        // Calculate average monthly positive cash flow
-        const positiveFlows = cashFlow.periods
-          .filter(p => p.net_cash_flow > 0)
-          .map(p => p.net_cash_flow);
+        // Get the final cumulative cash flow (closing balance)
+        const lastPeriod = cashFlow.periods[cashFlow.periods.length - 1];
+        const finalBalance = lastPeriod.cumulative_cash_flow;
 
-        return positiveFlows.length > 0
-          ? positiveFlows.reduce((sum, val) => sum + val, 0) / positiveFlows.length
-          : 0;
+        // Only return if positive, otherwise 0
+        return finalBalance > 0 ? finalBalance : 0;
       })()
     : parseFloat(manualAmount) || 0;
 
@@ -239,7 +237,7 @@ export default function NewInvestmentPage() {
     },
     cashFlowSource: {
       title: 'Fuente: Flujo de Caja',
-      description: 'Utiliza el promedio de flujos netos positivos de tu flujo de caja operacional como monto de inversión.'
+      description: 'Utiliza el saldo de cierre (flujo de caja acumulado final) de tu flujo de caja operacional como monto disponible para inversión.'
     }
   };
 
@@ -269,21 +267,21 @@ export default function NewInvestmentPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Nombre de la Simulación *
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                   placeholder="Ej: Inversión Q1 2025"
                 />
               </div>
 
               <div className="relative">
                 <div className="flex items-center gap-2 mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-900">
                     Perfil de Riesgo *
                   </label>
                   <button
@@ -305,33 +303,39 @@ export default function NewInvestmentPage() {
                     onClick={() => setRiskProfile('conservative')}
                     className={`p-3 rounded-lg border-2 transition-all ${
                       riskProfile === 'conservative'
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-300 hover:border-blue-300'
+                        ? 'border-blue-600 bg-blue-50 shadow-md'
+                        : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
                     }`}
                   >
-                    <p className="font-semibold text-sm">Conservador</p>
+                    <p className={`font-bold text-sm ${riskProfile === 'conservative' ? 'text-blue-900' : 'text-gray-700'}`}>
+                      Conservador
+                    </p>
                     <p className="text-xs text-gray-600 mt-1">Bajo riesgo</p>
                   </button>
                   <button
                     onClick={() => setRiskProfile('moderate')}
                     className={`p-3 rounded-lg border-2 transition-all ${
                       riskProfile === 'moderate'
-                        ? 'border-yellow-500 bg-yellow-50'
-                        : 'border-gray-300 hover:border-yellow-300'
+                        ? 'border-yellow-600 bg-yellow-50 shadow-md'
+                        : 'border-gray-300 hover:border-yellow-400 hover:bg-yellow-50'
                     }`}
                   >
-                    <p className="font-semibold text-sm">Moderado</p>
+                    <p className={`font-bold text-sm ${riskProfile === 'moderate' ? 'text-yellow-900' : 'text-gray-700'}`}>
+                      Moderado
+                    </p>
                     <p className="text-xs text-gray-600 mt-1">Riesgo medio</p>
                   </button>
                   <button
                     onClick={() => setRiskProfile('aggressive')}
                     className={`p-3 rounded-lg border-2 transition-all ${
                       riskProfile === 'aggressive'
-                        ? 'border-red-500 bg-red-50'
-                        : 'border-gray-300 hover:border-red-300'
+                        ? 'border-red-600 bg-red-50 shadow-md'
+                        : 'border-gray-300 hover:border-red-400 hover:bg-red-50'
                     }`}
                   >
-                    <p className="font-semibold text-sm">Agresivo</p>
+                    <p className={`font-bold text-sm ${riskProfile === 'aggressive' ? 'text-red-900' : 'text-gray-700'}`}>
+                      Agresivo
+                    </p>
                     <p className="text-xs text-gray-600 mt-1">Alto riesgo</p>
                   </button>
                 </div>
@@ -348,38 +352,42 @@ export default function NewInvestmentPage() {
               <div className="flex gap-4">
                 <button
                   onClick={() => setSourceType('manual')}
-                  className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                  className={`flex-1 p-4 rounded-lg border-2 transition-all ${
                     sourceType === 'manual'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300 hover:border-blue-300'
+                      ? 'border-blue-600 bg-blue-50 shadow-md'
+                      : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
                   }`}
                 >
-                  <DollarSign className="h-5 w-5 mx-auto mb-1" />
-                  <p className="font-semibold text-sm">Monto Manual</p>
+                  <DollarSign className={`h-6 w-6 mx-auto mb-1 ${sourceType === 'manual' ? 'text-blue-700' : 'text-gray-600'}`} />
+                  <p className={`font-bold text-sm ${sourceType === 'manual' ? 'text-blue-900' : 'text-gray-700'}`}>
+                    Monto Manual
+                  </p>
                 </button>
                 <button
                   onClick={() => setSourceType('cashflow')}
-                  className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                  className={`flex-1 p-4 rounded-lg border-2 transition-all ${
                     sourceType === 'cashflow'
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-300 hover:border-green-300'
+                      ? 'border-green-600 bg-green-50 shadow-md'
+                      : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
                   }`}
                 >
-                  <TrendingUp className="h-5 w-5 mx-auto mb-1" />
-                  <p className="font-semibold text-sm">Desde Flujo de Caja</p>
+                  <TrendingUp className={`h-6 w-6 mx-auto mb-1 ${sourceType === 'cashflow' ? 'text-green-700' : 'text-gray-600'}`} />
+                  <p className={`font-bold text-sm ${sourceType === 'cashflow' ? 'text-green-900' : 'text-gray-700'}`}>
+                    Desde Flujo de Caja
+                  </p>
                 </button>
               </div>
 
               {sourceType === 'manual' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
                     Monto a Invertir (COP)
                   </label>
                   <input
                     type="number"
                     value={manualAmount}
                     onChange={(e) => setManualAmount(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                     placeholder="0"
                     min="0"
                   />
@@ -387,7 +395,7 @@ export default function NewInvestmentPage() {
               ) : (
                 <div className="relative">
                   <div className="flex items-center gap-2 mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-semibold text-gray-900">
                       Seleccionar Flujo de Caja
                     </label>
                     <button
@@ -640,7 +648,7 @@ export default function NewInvestmentPage() {
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                 rows={3}
                 placeholder="Agrega observaciones o comentarios sobre esta simulación..."
               />

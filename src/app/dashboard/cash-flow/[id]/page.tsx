@@ -54,6 +54,11 @@ export default function CashFlowDetailPage() {
 
   const periods = cashFlow.periods || [];
 
+  // Calculate final balance (last period's cumulative cash flow)
+  const finalBalance = periods.length > 0
+    ? periods[periods.length - 1].cumulative_cash_flow
+    : 0;
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
@@ -99,24 +104,31 @@ export default function CashFlowDetailPage() {
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-900 mb-2">Análisis de Salud Financiera</h3>
 
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Flujo Promedio</p>
-                    <p className={`text-lg font-semibold ${healthAnalysis.averageNetFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="bg-white p-3 rounded-lg border-2 border-blue-200">
+                    <p className="text-sm font-semibold text-gray-700">Flujo Promedio</p>
+                    <p className={`text-lg font-bold ${healthAnalysis.averageNetFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(healthAnalysis.averageNetFlow)}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Meses Positivos</p>
-                    <p className="text-lg font-semibold text-green-600">
+                  <div className="bg-white p-3 rounded-lg border-2 border-green-200">
+                    <p className="text-sm font-semibold text-gray-700">Meses Positivos</p>
+                    <p className="text-lg font-bold text-green-600">
                       {healthAnalysis.positiveMonths} de {periods.length}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Meses Negativos</p>
-                    <p className="text-lg font-semibold text-red-600">
+                  <div className="bg-white p-3 rounded-lg border-2 border-red-200">
+                    <p className="text-sm font-semibold text-gray-700">Meses Negativos</p>
+                    <p className="text-lg font-bold text-red-600">
                       {healthAnalysis.negativeMonths} de {periods.length}
                     </p>
+                  </div>
+                  <div className={`p-3 rounded-lg border-2 ${finalBalance >= 0 ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+                    <p className="text-sm font-semibold text-gray-900">Saldo Final</p>
+                    <p className={`text-lg font-bold ${finalBalance >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      {formatCurrency(finalBalance)}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">Disponible para invertir</p>
                   </div>
                 </div>
 

@@ -18,64 +18,103 @@ CREATE TABLE IF NOT EXISTS investment_simulations (
 );
 
 -- Create indexes
-CREATE INDEX idx_investment_simulations_organization ON investment_simulations(organization_id);
-CREATE INDEX idx_investment_simulations_created_by ON investment_simulations(created_by);
-CREATE INDEX idx_investment_simulations_created_at ON investment_simulations(created_at DESC);
-CREATE INDEX idx_investment_simulations_risk_profile ON investment_simulations(risk_profile);
+CREATE INDEX IF NOT EXISTS idx_investment_simulations_organization ON investment_simulations(organization_id);
+CREATE INDEX IF NOT EXISTS idx_investment_simulations_created_by ON investment_simulations(created_by);
+CREATE INDEX IF NOT EXISTS idx_investment_simulations_created_at ON investment_simulations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_investment_simulations_risk_profile ON investment_simulations(risk_profile);
 
 -- Enable Row Level Security
 ALTER TABLE investment_simulations ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-CREATE POLICY "Users can view their organization's investment simulations"
-  ON investment_simulations
-  FOR SELECT
-  USING (
-    organization_id IN (
-      SELECT organization_id
-      FROM organization_users
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'investment_simulations'
+    AND policyname = 'Users can view their organization''s investment simulations'
+  ) THEN
+    CREATE POLICY "Users can view their organization's investment simulations"
+      ON investment_simulations
+      FOR SELECT
+      USING (
+        organization_id IN (
+          SELECT organization_id
+          FROM organization_users
+          WHERE user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
-CREATE POLICY "Users can create investment simulations for their organization"
-  ON investment_simulations
-  FOR INSERT
-  WITH CHECK (
-    organization_id IN (
-      SELECT organization_id
-      FROM organization_users
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'investment_simulations'
+    AND policyname = 'Users can create investment simulations for their organization'
+  ) THEN
+    CREATE POLICY "Users can create investment simulations for their organization"
+      ON investment_simulations
+      FOR INSERT
+      WITH CHECK (
+        organization_id IN (
+          SELECT organization_id
+          FROM organization_users
+          WHERE user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
-CREATE POLICY "Users can update their organization's investment simulations"
-  ON investment_simulations
-  FOR UPDATE
-  USING (
-    organization_id IN (
-      SELECT organization_id
-      FROM organization_users
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'investment_simulations'
+    AND policyname = 'Users can update their organization''s investment simulations'
+  ) THEN
+    CREATE POLICY "Users can update their organization's investment simulations"
+      ON investment_simulations
+      FOR UPDATE
+      USING (
+        organization_id IN (
+          SELECT organization_id
+          FROM organization_users
+          WHERE user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
-CREATE POLICY "Users can delete their organization's investment simulations"
-  ON investment_simulations
-  FOR DELETE
-  USING (
-    organization_id IN (
-      SELECT organization_id
-      FROM organization_users
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'investment_simulations'
+    AND policyname = 'Users can delete their organization''s investment simulations'
+  ) THEN
+    CREATE POLICY "Users can delete their organization's investment simulations"
+      ON investment_simulations
+      FOR DELETE
+      USING (
+        organization_id IN (
+          SELECT organization_id
+          FROM organization_users
+          WHERE user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
 -- Create updated_at trigger
-CREATE TRIGGER update_investment_simulations_updated_at
-  BEFORE UPDATE ON investment_simulations
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'update_investment_simulations_updated_at'
+  ) THEN
+    CREATE TRIGGER update_investment_simulations_updated_at
+      BEFORE UPDATE ON investment_simulations
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Add comments
 COMMENT ON TABLE investment_simulations IS 'Stores investment simulations and portfolio allocations';

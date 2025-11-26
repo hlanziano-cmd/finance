@@ -27,7 +27,7 @@ export function useInvestmentSimulations() {
     queryKey: QUERY_KEYS.simulations(currentOrganization?.id || ''),
     queryFn: async () => {
       const data = await service.list();
-      return data.map(item => ({
+      return data.map((item: any) => ({
         id: item.id,
         organizationId: item.organization_id,
         name: item.name,
@@ -56,7 +56,7 @@ export function useInvestmentSimulation(id: string) {
   return useQuery({
     queryKey: QUERY_KEYS.simulation(id),
     queryFn: async () => {
-      const item = await service.getById(id);
+      const item: any = await service.getById(id);
       if (!item) return null;
 
       return {

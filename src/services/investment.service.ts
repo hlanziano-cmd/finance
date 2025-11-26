@@ -398,7 +398,7 @@ export class InvestmentService {
         projections: simulation.projections,
         notes: simulation.notes,
         created_by: user.id
-      })
+      } as any)
       .select()
       .single();
 
@@ -407,17 +407,19 @@ export class InvestmentService {
   }
 
   async update(id: string, updates: Partial<InvestmentSimulation>) {
-    const { data, error } = await this.supabase
-      .from('investment_simulations')
-      .update({
-        name: updates.name,
-        initial_amount: updates.initialAmount,
-        risk_profile: updates.riskProfile,
-        selected_products: updates.selectedProducts,
-        diversification_strategy: updates.diversificationStrategy,
-        projections: updates.projections,
-        notes: updates.notes
-      })
+    const updateData: any = {
+      name: updates.name,
+      initial_amount: updates.initialAmount,
+      risk_profile: updates.riskProfile,
+      selected_products: updates.selectedProducts,
+      diversification_strategy: updates.diversificationStrategy,
+      projections: updates.projections,
+      notes: updates.notes
+    };
+
+    const { data, error } = await (this.supabase
+      .from('investment_simulations') as any)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

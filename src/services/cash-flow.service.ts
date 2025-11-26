@@ -86,7 +86,7 @@ export class CashFlowService {
 
     const { data, error } = await this.supabase
       .from('cash_flows')
-      .select('*')
+      .select('*, periods:cash_flow_periods(*)')
       .eq('created_by', user.id)
       .order('fiscal_year', { ascending: false });
 

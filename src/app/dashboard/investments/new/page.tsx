@@ -94,14 +94,27 @@ export default function NewInvestmentPage() {
   const investmentAmount = sourceType === 'cashflow' && selectedCashFlowId
     ? (() => {
         const cashFlow = cashFlows?.find((cf: any) => cf.id === selectedCashFlowId);
-        if (!cashFlow || !cashFlow.periods || cashFlow.periods.length === 0) return 0;
+        console.log('=== INVESTMENT AMOUNT DEBUG ===');
+        console.log('Selected Cash Flow ID:', selectedCashFlowId);
+        console.log('Cash Flow Found:', cashFlow);
+        console.log('Has Periods?:', cashFlow?.periods);
+
+        if (!cashFlow || !cashFlow.periods || cashFlow.periods.length === 0) {
+          console.log('No cash flow or no periods found');
+          return 0;
+        }
 
         // Get the final cumulative cash flow (closing balance)
         const lastPeriod = cashFlow.periods[cashFlow.periods.length - 1];
+        console.log('Last Period:', lastPeriod);
+        console.log('Cumulative Cash Flow:', lastPeriod.cumulative_cash_flow);
+
         const finalBalance = lastPeriod.cumulative_cash_flow;
 
         // Only return if positive, otherwise 0
-        return finalBalance > 0 ? finalBalance : 0;
+        const result = finalBalance > 0 ? finalBalance : 0;
+        console.log('Final Investment Amount:', result);
+        return result;
       })()
     : parseFormattedNumber(manualAmount);
 

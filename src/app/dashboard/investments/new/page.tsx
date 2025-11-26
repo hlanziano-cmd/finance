@@ -207,6 +207,11 @@ export default function NewInvestmentPage() {
   }, [useDiversification, diversifiedPortfolio]);
 
   const handleSubmit = async () => {
+    if (!currentOrganization?.id) {
+      alert('No se pudo obtener la organización actual. Por favor recarga la página.');
+      return;
+    }
+
     if (!name.trim()) {
       alert('Por favor ingresa un nombre para la simulación');
       return;
@@ -221,6 +226,10 @@ export default function NewInvestmentPage() {
       alert('No se pudieron calcular las proyecciones. Verifica los datos ingresados.');
       return;
     }
+
+    console.log('=== SUBMIT DEBUG ===');
+    console.log('Organization ID:', currentOrganization.id);
+    console.log('Current Organization:', currentOrganization);
 
     if (!currentOrganization) {
       alert('No se pudo obtener la organización actual');
@@ -557,13 +566,13 @@ export default function NewInvestmentPage() {
 
                 {useDiversification && (
                   <div>
-                    <label className="block text-sm font-medium text-purple-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
                       Estrategia
                     </label>
                     <select
                       value={diversificationStrategy}
                       onChange={(e) => setDiversificationStrategy(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900 font-medium bg-white"
                     >
                       <option value="equal">Distribución Igual</option>
                       <option value="risk-weighted">Ponderada por Riesgo</option>

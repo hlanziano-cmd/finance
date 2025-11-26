@@ -46,27 +46,27 @@ export default function BalanceSheetDetailPage() {
     );
   }
 
-  const totals = balance.totals || {
-    totalActivo: 0,
-    totalActivoCorriente: 0,
-    totalActivoNoCorriente: 0,
-    totalPasivo: 0,
-    totalPasivoCorriente: 0,
-    totalPasivoNoCorriente: 0,
-    totalPatrimonio: 0,
-    isBalanced: false,
-    difference: 0
-  };
-
-  const totalAssets = totals.totalActivo;
-  const totalLiabilities = totals.totalPasivo;
-  const totalEquity = totals.totalPatrimonio;
-  const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
-
-  // Agrupar items por categoría y subcategoría
+  // Calculate totals from items
   const activoItems = balance.items.filter(item => item.category === 'activo');
   const pasivoItems = balance.items.filter(item => item.category === 'pasivo');
   const patrimonioItems = balance.items.filter(item => item.category === 'patrimonio');
+
+  const totalAssets = activoItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalLiabilities = pasivoItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalEquity = patrimonioItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
+
+  const totals = balance.totals || {
+    totalActivo: totalAssets,
+    totalActivoCorriente: activoItems.filter(i => i.subcategory.toLowerCase().includes('corriente')).reduce((sum, item) => sum + item.amount, 0),
+    totalActivoNoCorriente: activoItems.filter(i => i.subcategory.toLowerCase().includes('no corriente')).reduce((sum, item) => sum + item.amount, 0),
+    totalPasivo: totalLiabilities,
+    totalPasivoCorriente: pasivoItems.filter(i => i.subcategory.toLowerCase().includes('corriente')).reduce((sum, item) => sum + item.amount, 0),
+    totalPasivoNoCorriente: pasivoItems.filter(i => i.subcategory.toLowerCase().includes('no corriente')).reduce((sum, item) => sum + item.amount, 0),
+    totalPatrimonio: totalEquity,
+    isBalanced: Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.01,
+    difference: totalAssets - totalLiabilitiesAndEquity
+  };
 
   // Agrupar por subcategoría
   const groupBySubcategory = (items: typeof balance.items) => {

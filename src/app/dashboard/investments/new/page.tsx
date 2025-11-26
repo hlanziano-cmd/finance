@@ -605,15 +605,15 @@ export default function NewInvestmentPage() {
                               />
                             )}
                             <div>
-                              <p className="font-semibold text-sm">{product.name}</p>
-                              <p className="text-xs text-gray-600">{product.institution}</p>
+                              <p className="font-bold text-sm text-gray-900">{product.name}</p>
+                              <p className="text-xs text-gray-700 font-medium">{product.institution}</p>
                             </div>
                           </div>
                         </div>
                         <Badge className={
-                          product.riskLevel === 'conservative' ? 'bg-blue-500 text-white' :
-                          product.riskLevel === 'moderate' ? 'bg-yellow-500 text-white' :
-                          'bg-red-500 text-white'
+                          product.riskLevel === 'conservative' ? 'bg-blue-600 text-white font-bold' :
+                          product.riskLevel === 'moderate' ? 'bg-yellow-600 text-white font-bold' :
+                          'bg-red-600 text-white font-bold'
                         }>
                           {product.expectedReturn12Months.toFixed(1)}% anual
                         </Badge>
@@ -622,25 +622,25 @@ export default function NewInvestmentPage() {
                       {isSelected && (
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <div className="text-xs">
-                            <span className="text-gray-600">Mínimo:</span>
-                            <span className="ml-1 font-semibold">{formatCurrency(product.minAmount)}</span>
+                            <span className="text-gray-800 font-semibold">Mínimo:</span>
+                            <span className="ml-1 font-bold text-gray-900">{formatCurrency(product.minAmount)}</span>
                           </div>
                           <div className="text-xs">
-                            <span className="text-gray-600">Liquidez:</span>
-                            <span className="ml-1 font-semibold">{product.liquidity}</span>
+                            <span className="text-gray-800 font-semibold">Liquidez:</span>
+                            <span className="ml-1 font-bold text-gray-900">{product.liquidity}</span>
                           </div>
                         </div>
                       )}
 
                       {isSelected && allocation && useDiversification && (
-                        <div className="mt-3 bg-white p-2 rounded border border-blue-300">
+                        <div className="mt-3 bg-white p-3 rounded border-2 border-blue-400">
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-700">Asignación:</span>
-                            <span className="font-bold text-blue-900">{allocation.percentage.toFixed(1)}%</span>
+                            <span className="text-gray-900 font-semibold">Asignación:</span>
+                            <span className="font-bold text-blue-700">{allocation.percentage.toFixed(1)}%</span>
                           </div>
                           <div className="flex justify-between text-sm mt-1">
-                            <span className="text-gray-700">Monto:</span>
-                            <span className="font-bold text-blue-900">{formatCurrency(allocation.amount)}</span>
+                            <span className="text-gray-900 font-semibold">Monto:</span>
+                            <span className="font-bold text-blue-700">{formatCurrency(allocation.amount)}</span>
                           </div>
                         </div>
                       )}

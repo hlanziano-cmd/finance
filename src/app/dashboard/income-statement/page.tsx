@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, TrendingUp, TrendingDown, DollarSign, Trash2, Calendar, Edit, Eye, FileDown } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, DollarSign, Trash2, Calendar, Edit, Eye, FileDown, Info } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { useIncomeStatements, useDeleteIncomeStatement } from '@/src/lib/hooks/useIncomeStatement';
@@ -109,6 +109,44 @@ export default function IncomeStatementPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Explicación de Márgenes */}
+      <Card className="bg-blue-50 border-2 border-blue-200">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3 mb-4">
+            <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 mb-3">¿Qué son los Márgenes?</h3>
+              <div className="space-y-3 text-sm">
+                <div className="bg-white p-3 rounded-lg border border-blue-200">
+                  <p className="font-semibold text-blue-700 mb-1">Margen Bruto</p>
+                  <p className="text-gray-700 text-xs">
+                    Mide la rentabilidad después de restar el <strong>costo de ventas</strong>.
+                    Fórmula: <code className="bg-blue-100 px-1 py-0.5 rounded">(Utilidad Bruta / Ingresos) × 100</code>.
+                    Indica cuánto ganas por cada peso vendido antes de gastos operativos.
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-purple-200">
+                  <p className="font-semibold text-purple-700 mb-1">Margen Operacional</p>
+                  <p className="text-gray-700 text-xs">
+                    Mide la rentabilidad después de restar <strong>costos y gastos operativos</strong>.
+                    Fórmula: <code className="bg-purple-100 px-1 py-0.5 rounded">(Utilidad Operacional / Ingresos) × 100</code>.
+                    Refleja la eficiencia operativa del negocio.
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-green-200">
+                  <p className="font-semibold text-green-700 mb-1">Margen Neto</p>
+                  <p className="text-gray-700 text-xs">
+                    Mide la rentabilidad final después de <strong>todos los costos, gastos e impuestos</strong>.
+                    Fórmula: <code className="bg-green-100 px-1 py-0.5 rounded">(Utilidad Neta / Ingresos) × 100</code>.
+                    Es el porcentaje real de ganancia que queda del negocio.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Lista de Estados de Resultados */}
       {!statements || statements.length === 0 ? (

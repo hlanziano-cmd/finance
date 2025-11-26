@@ -387,7 +387,7 @@ export class InvestmentService {
     const { data, error } = await this.supabase
       .from('investment_simulations')
       .insert({
-        organization_id: simulation.organizationId,
+        organization_id: simulation.organizationId || null, // Optional - can be null
         name: simulation.name,
         initial_amount: simulation.initialAmount,
         source_type: simulation.sourceType,

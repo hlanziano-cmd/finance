@@ -207,11 +207,6 @@ export default function NewInvestmentPage() {
   }, [useDiversification, diversifiedPortfolio]);
 
   const handleSubmit = async () => {
-    if (!currentOrganization?.id) {
-      alert('No se pudo obtener la organización actual. Por favor recarga la página.');
-      return;
-    }
-
     if (!name.trim()) {
       alert('Por favor ingresa un nombre para la simulación');
       return;
@@ -224,15 +219,6 @@ export default function NewInvestmentPage() {
 
     if (!projections) {
       alert('No se pudieron calcular las proyecciones. Verifica los datos ingresados.');
-      return;
-    }
-
-    console.log('=== SUBMIT DEBUG ===');
-    console.log('Organization ID:', currentOrganization.id);
-    console.log('Current Organization:', currentOrganization);
-
-    if (!currentOrganization) {
-      alert('No se pudo obtener la organización actual');
       return;
     }
 
@@ -251,7 +237,7 @@ export default function NewInvestmentPage() {
     }
 
     createMutation.mutate({
-      organizationId: currentOrganization.id,
+      organizationId: currentOrganization?.id || undefined, // Optional
       name,
       initialAmount: investmentAmount,
       sourceType,

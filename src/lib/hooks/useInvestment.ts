@@ -17,14 +17,13 @@ const QUERY_KEYS = {
   productsByRisk: (risk: RiskProfile) => ['investment-products', 'by-risk', risk],
 };
 
-// Fetch all investment simulations for the current organization
+// Fetch all investment simulations for the current user
 export function useInvestmentSimulations() {
   const supabase = useSupabase();
-  const { currentOrganization } = useOrganization();
   const service = new InvestmentService(supabase);
 
   return useQuery({
-    queryKey: QUERY_KEYS.simulations(currentOrganization?.id || ''),
+    queryKey: QUERY_KEYS.simulations('user'),
     queryFn: async () => {
       const data = await service.list();
       return data.map((item: any) => ({
@@ -44,7 +43,6 @@ export function useInvestmentSimulations() {
         createdBy: item.created_by
       })) as InvestmentSimulation[];
     },
-    enabled: !!currentOrganization?.id,
   });
 }
 
@@ -155,7 +153,6 @@ export function useDiversifiedPortfolio(
 export function useCreateInvestmentSimulation() {
   const supabase = useSupabase();
   const queryClient = useQueryClient();
-  const { currentOrganization } = useOrganization();
   const service = new InvestmentService(supabase);
 
   return useMutation({
@@ -163,11 +160,9 @@ export function useCreateInvestmentSimulation() {
       return await service.create(simulation);
     },
     onSuccess: () => {
-      if (currentOrganization?.id) {
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.simulations(currentOrganization.id)
-        });
-      }
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.simulations('user')
+      });
     },
   });
 }
@@ -176,7 +171,6 @@ export function useCreateInvestmentSimulation() {
 export function useUpdateInvestmentSimulation() {
   const supabase = useSupabase();
   const queryClient = useQueryClient();
-  const { currentOrganization } = useOrganization();
   const service = new InvestmentService(supabase);
 
   return useMutation({
@@ -187,11 +181,9 @@ export function useUpdateInvestmentSimulation() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.simulation(variables.id)
       });
-      if (currentOrganization?.id) {
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.simulations(currentOrganization.id)
-        });
-      }
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.simulations('user')
+      });
     },
   });
 }
@@ -200,7 +192,6 @@ export function useUpdateInvestmentSimulation() {
 export function useDeleteInvestmentSimulation() {
   const supabase = useSupabase();
   const queryClient = useQueryClient();
-  const { currentOrganization } = useOrganization();
   const service = new InvestmentService(supabase);
 
   return useMutation({
@@ -208,11 +199,9 @@ export function useDeleteInvestmentSimulation() {
       await service.delete(id);
     },
     onSuccess: () => {
-      if (currentOrganization?.id) {
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.simulations(currentOrganization.id)
-        });
-      }
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.simulations('user')
+      });
     },
   });
 }

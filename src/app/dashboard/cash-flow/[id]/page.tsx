@@ -53,6 +53,7 @@ export default function CashFlowDetailPage() {
   }
 
   const periods = cashFlow.periods || [];
+  const additionalItems = cashFlow.additional_items || { incomes: [], expenses: [] };
 
   // Calculate final balance (last period's cumulative cash flow)
   const finalBalance = periods.length > 0
@@ -128,7 +129,6 @@ export default function CashFlowDetailPage() {
                     <p className={`text-lg font-bold ${finalBalance >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                       {formatCurrency(finalBalance)}
                     </p>
-                    <p className="text-xs text-gray-600 mt-1">Disponible para invertir</p>
                   </div>
                 </div>
 
@@ -234,6 +234,14 @@ export default function CashFlowDetailPage() {
                       {formatCurrency(periods.reduce((sum, p) => sum + p.other_income, 0))}
                     </span>
                   </div>
+                  {additionalItems.incomes.map((item) => (
+                    <div key={item.id} className="flex justify-between">
+                      <span className="text-gray-700">{item.name || 'Ingreso adicional'}:</span>
+                      <span className="font-semibold text-green-700">
+                        {formatCurrency(Object.values(item.amounts).reduce((sum, v) => sum + v, 0))}
+                      </span>
+                    </div>
+                  ))}
                   <div className="flex justify-between border-t border-green-300 pt-2">
                     <span className="font-semibold text-gray-900">Total:</span>
                     <span className="font-bold text-green-800">
@@ -286,6 +294,14 @@ export default function CashFlowDetailPage() {
                       {formatCurrency(periods.reduce((sum, p) => sum + p.other_expenses, 0))}
                     </span>
                   </div>
+                  {additionalItems.expenses.map((item) => (
+                    <div key={item.id} className="flex justify-between">
+                      <span className="text-gray-700">{item.name || 'Gasto adicional'}:</span>
+                      <span className="font-semibold text-red-700">
+                        {formatCurrency(Object.values(item.amounts).reduce((sum, v) => sum + v, 0))}
+                      </span>
+                    </div>
+                  ))}
                   <div className="flex justify-between border-t border-red-300 pt-2">
                     <span className="font-semibold text-gray-900">Total:</span>
                     <span className="font-bold text-red-800">

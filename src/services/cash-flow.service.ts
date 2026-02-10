@@ -2,6 +2,17 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
+export interface AdditionalItem {
+  id: string;
+  name: string;
+  amounts: Record<number, number>; // month (1-12) -> amount
+}
+
+export interface AdditionalItems {
+  incomes: AdditionalItem[];
+  expenses: AdditionalItem[];
+}
+
 export interface CashFlowPeriodDTO {
   month: number; // 1-12
   year: number;
@@ -19,6 +30,7 @@ export interface CashFlowDTO {
   name: string;
   fiscalYear: number;
   periods: CashFlowPeriodDTO[];
+  additionalItems?: AdditionalItems;
 }
 
 export interface CashFlowPeriod {
@@ -46,6 +58,7 @@ export interface CashFlow {
   id: string;
   name: string;
   fiscal_year: number;
+  additional_items?: AdditionalItems;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -65,6 +78,7 @@ export class CashFlowService {
       .insert({
         name: dto.name,
         fiscal_year: dto.fiscalYear,
+        additional_items: dto.additionalItems || { incomes: [], expenses: [] },
         created_by: user.id,
       })
       .select()
@@ -74,7 +88,7 @@ export class CashFlowService {
 
     // Crear los períodos
     if (dto.periods && dto.periods.length > 0) {
-      await this.createPeriods(cashFlow.id, dto.periods);
+      await this.createPeriods(cashFlow.id, dto.periods, dto.additionalItems);
     }
 
     return cashFlow;
@@ -128,6 +142,7 @@ export class CashFlowService {
       .update({
         name: dto.name,
         fiscal_year: dto.fiscalYear,
+        additional_items: dto.additionalItems || { incomes: [], expenses: [] },
       })
       .eq('id', id)
       .eq('created_by', user.id)
@@ -139,7 +154,7 @@ export class CashFlowService {
     // Eliminar períodos antiguos y crear nuevos
     await this.deletePeriods(id);
     if (dto.periods && dto.periods.length > 0) {
-      await this.createPeriods(id, dto.periods);
+      await this.createPeriods(id, dto.periods, dto.additionalItems);
     }
 
     return data;
@@ -158,7 +173,11 @@ export class CashFlowService {
     if (error) throw error;
   }
 
-  private async createPeriods(cashFlowId: string, periods: CashFlowPeriodDTO[]): Promise<void> {
+  private async createPeriods(
+    cashFlowId: string,
+    periods: CashFlowPeriodDTO[],
+    additionalItems?: AdditionalItems
+  ): Promise<void> {
     // Ordenar períodos por año y mes para calcular acumulados
     const sortedPeriods = [...periods].sort((a, b) => {
       if (a.year !== b.year) return a.year - b.year;
@@ -167,14 +186,24 @@ export class CashFlowService {
 
     let cumulativeCashFlow = 0;
     const periodsToInsert = sortedPeriods.map(period => {
-      const totalInflows = period.salesCollections + period.otherIncome;
+      // Calculate additional income for this month
+      const additionalIncome = (additionalItems?.incomes || []).reduce(
+        (sum, item) => sum + (item.amounts[period.month] || 0), 0
+      );
+      // Calculate additional expenses for this month
+      const additionalExpense = (additionalItems?.expenses || []).reduce(
+        (sum, item) => sum + (item.amounts[period.month] || 0), 0
+      );
+
+      const totalInflows = period.salesCollections + period.otherIncome + additionalIncome;
       const totalOutflows =
         period.supplierPayments +
         period.payroll +
         period.rent +
         period.utilities +
         period.taxes +
-        period.otherExpenses;
+        period.otherExpenses +
+        additionalExpense;
 
       const netCashFlow = totalInflows - totalOutflows;
       cumulativeCashFlow += netCashFlow;

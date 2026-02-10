@@ -10,8 +10,6 @@ import {
   LogOut,
   BarChart3,
   Coins,
-  Calculator,
-  Target
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
@@ -20,8 +18,6 @@ const navigation = [
   { name: 'Estado de Resultados', href: '/dashboard/income-statement', icon: BarChart3 },
   { name: 'Flujo de Caja', href: '/dashboard/cash-flow', icon: Coins },
   { name: 'Indicadores', href: '/dashboard/indicators', icon: TrendingUp },
-  { name: 'Análisis de Costos', href: '/dashboard/cost-analysis', icon: Calculator },
-  { name: 'Inversiones', href: '/dashboard/investments', icon: Target },
   { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
 ];
 

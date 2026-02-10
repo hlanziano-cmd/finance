@@ -4,8 +4,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Force dynamic rendering
-export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { createClient } from '@/src/lib/supabase/client';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';

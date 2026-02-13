@@ -211,6 +211,23 @@ function CashFlowEditor({
     )
   );
 
+  const DEFAULT_LABELS: Record<string, string> = {
+    salesCollections: 'Cobros de Ventas',
+    otherIncome: 'Otros Ingresos',
+    supplierPayments: 'Pagos a Proveedores',
+    payroll: 'Nómina',
+    rent: 'Arriendo',
+    utilities: 'Servicios Públicos',
+    taxes: 'Impuestos',
+    otherExpenses: 'Otros Gastos',
+  };
+
+  const [customLabels, setCustomLabels] = useState<Record<string, string>>({});
+  const getLabel = (field: string) => customLabels[field] || DEFAULT_LABELS[field] || field;
+  const updateLabel = (field: string, label: string) => {
+    setCustomLabels(prev => ({ ...prev, [field]: label }));
+  };
+
   const [additionalItems, setAdditionalItems] = useState<AdditionalItems>({
     incomes: [],
     expenses: [],
@@ -262,6 +279,9 @@ function CashFlowEditor({
 
       if (cashFlow.additional_items) {
         setAdditionalItems(cashFlow.additional_items);
+        if (cashFlow.additional_items.customLabels) {
+          setCustomLabels(cashFlow.additional_items.customLabels);
+        }
       }
     }
   }, [cashFlow, mode]);
@@ -355,7 +375,7 @@ function CashFlowEditor({
       name: cashFlowName,
       fiscalYear,
       periods: Object.values(periods),
-      additionalItems,
+      additionalItems: { ...additionalItems, customLabels },
     };
 
     try {
@@ -474,19 +494,21 @@ function CashFlowEditor({
                 </tr>
 
                 <CashFlowRow
-                  label="Cobros de Ventas"
+                  label={getLabel('salesCollections')}
                   field="salesCollections"
                   periods={periods}
                   onChange={handleValueChange}
+                  onLabelChange={(name) => updateLabel('salesCollections', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.salesCollections, 0)}
                   displayValues={displayValues}
                   setDisplayValues={setDisplayValues}
                 />
                 <CashFlowRow
-                  label="Otros Ingresos"
+                  label={getLabel('otherIncome')}
                   field="otherIncome"
                   periods={periods}
                   onChange={handleValueChange}
+                  onLabelChange={(name) => updateLabel('otherIncome', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.otherIncome, 0)}
                   displayValues={displayValues}
                   setDisplayValues={setDisplayValues}
@@ -545,22 +567,28 @@ function CashFlowEditor({
                   </td>
                 </tr>
 
-                <CashFlowRow label="Pagos a Proveedores" field="supplierPayments" periods={periods} onChange={handleValueChange}
+                <CashFlowRow label={getLabel('supplierPayments')} field="supplierPayments" periods={periods} onChange={handleValueChange}
+                  onLabelChange={(name) => updateLabel('supplierPayments', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.supplierPayments, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} />
-                <CashFlowRow label="Nómina" field="payroll" periods={periods} onChange={handleValueChange}
+                <CashFlowRow label={getLabel('payroll')} field="payroll" periods={periods} onChange={handleValueChange}
+                  onLabelChange={(name) => updateLabel('payroll', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.payroll, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} />
-                <CashFlowRow label="Arriendo" field="rent" periods={periods} onChange={handleValueChange}
+                <CashFlowRow label={getLabel('rent')} field="rent" periods={periods} onChange={handleValueChange}
+                  onLabelChange={(name) => updateLabel('rent', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.rent, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} />
-                <CashFlowRow label="Servicios Públicos" field="utilities" periods={periods} onChange={handleValueChange}
+                <CashFlowRow label={getLabel('utilities')} field="utilities" periods={periods} onChange={handleValueChange}
+                  onLabelChange={(name) => updateLabel('utilities', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.utilities, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} />
-                <CashFlowRow label="Impuestos" field="taxes" periods={periods} onChange={handleValueChange}
+                <CashFlowRow label={getLabel('taxes')} field="taxes" periods={periods} onChange={handleValueChange}
+                  onLabelChange={(name) => updateLabel('taxes', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.taxes, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} />
-                <CashFlowRow label="Otros Gastos" field="otherExpenses" periods={periods} onChange={handleValueChange}
+                <CashFlowRow label={getLabel('otherExpenses')} field="otherExpenses" periods={periods} onChange={handleValueChange}
+                  onLabelChange={(name) => updateLabel('otherExpenses', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.otherExpenses, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} />
 
@@ -679,20 +707,26 @@ function CashFlowEditor({
 // ==========================================
 
 function CashFlowRow({
-  label, field, periods, onChange, yearTotal, displayValues, setDisplayValues,
+  label, field, periods, onChange, onLabelChange, yearTotal, displayValues, setDisplayValues,
 }: {
   label: string;
   field: keyof CashFlowPeriodDTO;
   periods: Record<number, CashFlowPeriodDTO>;
   onChange: (month: number, field: keyof CashFlowPeriodDTO, value: number) => void;
+  onLabelChange?: (name: string) => void;
   yearTotal: number;
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }) {
   return (
     <tr className="hover:bg-gray-50">
-      <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-3 py-2 font-medium text-gray-700">
-        {label}
+      <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => onLabelChange?.(e.target.value)}
+          className="w-full px-2 py-1 text-sm font-medium text-gray-700 border-0 focus:ring-1 focus:ring-blue-500 rounded"
+        />
       </td>
       {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
         const inputKey = `${month}-${field}`;

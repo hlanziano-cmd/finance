@@ -10,6 +10,7 @@ import {
   LogOut,
   BarChart3,
   Coins,
+  Landmark,
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Balance General', href: '/dashboard/balances', icon: FileText },
   { name: 'Estado de Resultados', href: '/dashboard/income-statement', icon: BarChart3 },
   { name: 'Flujo de Caja', href: '/dashboard/cash-flow', icon: Coins },
+  { name: 'Cuentas Bancarias', href: '/dashboard/bank-accounts', icon: Landmark },
   { name: 'Indicadores', href: '/dashboard/indicators', icon: TrendingUp },
   { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
 ];

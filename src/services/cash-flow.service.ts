@@ -5,7 +5,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 export interface AdditionalItem {
   id: string;
   name: string;
-  amounts: Record<number, number>; // month (1-12) -> amount
+  amounts: Record<number, number>; // column index (1-based) -> amount
 }
 
 export interface AdditionalItems {
@@ -30,7 +30,7 @@ export interface CashFlowPeriodDTO {
 
 export interface CashFlowDTO {
   name: string;
-  fiscalYear: number;
+  fiscalYear?: number; // Optional: derived from periods if not provided
   periods: CashFlowPeriodDTO[];
   additionalItems?: AdditionalItems;
 }
@@ -74,12 +74,17 @@ export class CashFlowService {
     const { data: { user } } = await this.supabase.auth.getUser();
     if (!user) throw new Error('Usuario no autenticado');
 
+    // Derive fiscal year from periods if not provided
+    const fiscalYear = dto.fiscalYear || (dto.periods.length > 0
+      ? Math.min(...dto.periods.map(p => p.year))
+      : new Date().getFullYear());
+
     // Crear el flujo de caja
     const { data: cashFlow, error: cashFlowError } = await this.supabase
       .from('cash_flows')
       .insert({
         name: dto.name,
-        fiscal_year: dto.fiscalYear,
+        fiscal_year: fiscalYear,
         additional_items: dto.additionalItems || { incomes: [], expenses: [] },
         created_by: user.id,
       })
@@ -138,12 +143,17 @@ export class CashFlowService {
     const { data: { user } } = await this.supabase.auth.getUser();
     if (!user) throw new Error('Usuario no autenticado');
 
+    // Derive fiscal year from periods if not provided
+    const fiscalYear = dto.fiscalYear || (dto.periods.length > 0
+      ? Math.min(...dto.periods.map(p => p.year))
+      : new Date().getFullYear());
+
     // Actualizar el flujo de caja
     const { data, error } = await this.supabase
       .from('cash_flows')
       .update({
         name: dto.name,
-        fiscal_year: dto.fiscalYear,
+        fiscal_year: fiscalYear,
         additional_items: dto.additionalItems || { incomes: [], expenses: [] },
       })
       .eq('id', id)
@@ -187,14 +197,15 @@ export class CashFlowService {
     });
 
     let cumulativeCashFlow = 0;
-    const periodsToInsert = sortedPeriods.map(period => {
-      // Calculate additional income for this month
+    const periodsToInsert = sortedPeriods.map((period, idx) => {
+      const colIndex = idx + 1; // 1-based column index for amounts lookup
+      // Calculate additional income for this column
       const additionalIncome = (additionalItems?.incomes || []).reduce(
-        (sum, item) => sum + (item.amounts[period.month] || 0), 0
+        (sum, item) => sum + (item.amounts[colIndex] || 0), 0
       );
-      // Calculate additional expenses for this month
+      // Calculate additional expenses for this column
       const additionalExpense = (additionalItems?.expenses || []).reduce(
-        (sum, item) => sum + (item.amounts[period.month] || 0), 0
+        (sum, item) => sum + (item.amounts[colIndex] || 0), 0
       );
 
       const totalInflows = period.salesCollections + period.otherIncome + additionalIncome;

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, TrendingUp, TrendingDown, Info, Lightbulb, HelpCircle } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Info, Lightbulb, HelpCircle, Download } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { LabelWithTooltip } from '@/src/components/ui/Tooltip';
@@ -13,6 +13,8 @@ import {
   useIncomeStatementItems,
   useUpdateIncomeStatement
 } from '@/src/lib/hooks/useIncomeStatement';
+import { useCashFlows } from '@/src/lib/hooks/useCashFlow';
+import type { CashFlow } from '@/src/services/cash-flow.service';
 import {
   INGRESOS_OPERACIONALES,
   COSTOS_VENTAS,
@@ -31,6 +33,8 @@ export default function EditIncomeStatementPage() {
   const { data: incomeStatement, isLoading: isLoadingStatement } = useIncomeStatement(id);
   const { data: items, isLoading: isLoadingItems } = useIncomeStatementItems(id);
   const updateMutation = useUpdateIncomeStatement();
+  const { data: cashFlows = [] } = useCashFlows();
+  const [showImport, setShowImport] = useState(false);
 
   // Datos básicos
   const [statementName, setStatementName] = useState('');
@@ -86,6 +90,73 @@ export default function EditIncomeStatementPage() {
 
   const handleAccountChange = (code: string, value: number) => {
     setAccountValues(prev => ({ ...prev, [code]: value }));
+  };
+
+  const handleImportCashFlow = (cashFlow: CashFlow) => {
+    const periods = cashFlow.periods || [];
+    if (periods.length === 0) return;
+
+    const additionalItems = cashFlow.additional_items;
+
+    let salesCollections = 0;
+    let otherIncome = 0;
+    let supplierPayments = 0;
+    let payrollTotal = 0;
+    let rentTotal = 0;
+    let utilitiesTotal = 0;
+    let otherExpensesTotal = 0;
+
+    periods.forEach(p => {
+      salesCollections += p.sales_collections;
+      otherIncome += p.other_income;
+      supplierPayments += p.supplier_payments;
+      payrollTotal += p.payroll;
+      rentTotal += p.rent;
+      utilitiesTotal += p.utilities;
+      otherExpensesTotal += p.other_expenses;
+    });
+
+    let additionalIncomeTotal = 0;
+    let additionalExpenseTotal = 0;
+
+    if (additionalItems) {
+      (additionalItems.incomes || []).forEach(item => {
+        Object.values(item.amounts).forEach(amt => {
+          additionalIncomeTotal += Number(amt) || 0;
+        });
+      });
+      (additionalItems.expenses || []).forEach(item => {
+        Object.values(item.amounts).forEach(amt => {
+          additionalExpenseTotal += Number(amt) || 0;
+        });
+      });
+    }
+
+    setAccountValues({
+      '4135': salesCollections + additionalIncomeTotal,
+      '4295': otherIncome,
+      '6135': supplierPayments,
+      '5105': payrollTotal,
+      '5120': rentTotal,
+      '5135': utilitiesTotal,
+      '5205': otherExpensesTotal + additionalExpenseTotal,
+    });
+
+    // Auto-set period dates based on cash flow periods
+    const sortedPeriods = [...periods].sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    });
+    const firstPeriod = sortedPeriods[0];
+    const lastPeriod = sortedPeriods[sortedPeriods.length - 1];
+
+    setPeriodStart(`${firstPeriod.year}-${String(firstPeriod.month).padStart(2, '0')}-01`);
+    const lastDay = new Date(lastPeriod.year, lastPeriod.month, 0).getDate();
+    setPeriodEnd(`${lastPeriod.year}-${String(lastPeriod.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`);
+
+    setFiscalYear(firstPeriod.year);
+    setStatementName(`Estado de Resultados - ${cashFlow.name}`);
+    setShowImport(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -290,12 +361,54 @@ export default function EditIncomeStatementPage() {
         {/* Información básica */}
         <Card>
           <CardHeader>
-            <CardTitle>Información del Período</CardTitle>
-            <CardDescription>
-              Datos generales del estado de resultados
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Información del Período</CardTitle>
+                <CardDescription>
+                  Datos generales del estado de resultados
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowImport(!showImport)}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Importar desde Flujo de Caja
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {showImport && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                <h4 className="text-sm font-semibold text-blue-900 mb-2">
+                  Selecciona un Flujo de Caja para importar
+                </h4>
+                <p className="text-xs text-blue-700 mb-3">
+                  Los valores del flujo de caja se sumarán y asignarán a las cuentas correspondientes
+                </p>
+                {(cashFlows as CashFlow[]).length === 0 ? (
+                  <p className="text-sm text-gray-500">No hay flujos de caja disponibles. Crea uno primero.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {(cashFlows as CashFlow[]).map((cf) => (
+                      <button
+                        key={cf.id}
+                        type="button"
+                        onClick={() => handleImportCashFlow(cf)}
+                        className="w-full text-left rounded-md bg-white p-3 border border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                      >
+                        <p className="font-medium text-gray-900">{cf.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {cf.periods?.length || 0} periodos | Año: {cf.fiscal_year}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                 Nombre del Estado de Resultados <span className="text-red-500">*</span>

@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Plus, TrendingUp, TrendingDown, Trash2,
+  Plus, Minus, TrendingUp, TrendingDown, Trash2,
   Download, AlertCircle, Info, X, Save, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
@@ -17,13 +17,22 @@ import { formatCurrency, formatNumberInput, parseNumberInput } from '@/src/lib/u
 import { exportCashFlowToPDF } from '@/src/lib/utils/pdf-export';
 import type { CashFlowPeriodDTO, AdditionalItem, AdditionalItems } from '@/src/services/cash-flow.service';
 
-const MONTHS = [
+const MONTH_NAMES = [
   'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
   'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
 ];
 
 function generateId() {
   return Math.random().toString(36).substring(2, 15);
+}
+
+function createEmptyPeriod(month: number, year: number): CashFlowPeriodDTO {
+  return {
+    month, year,
+    salesCollections: 0, otherIncome: 0,
+    supplierPayments: 0, payroll: 0, rent: 0,
+    utilities: 0, taxes: 0, otherExpenses: 0,
+  };
 }
 
 // Sub-item handler props shared across row components
@@ -48,7 +57,6 @@ export default function CashFlowPage() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  // Set first tab as active when data loads
   useEffect(() => {
     if (cashFlows && cashFlows.length > 0 && !activeTabId && !isCreatingNew) {
       setActiveTabId(cashFlows[0].id);
@@ -70,7 +78,6 @@ export default function CashFlowPage() {
       await deleteMutation.mutateAsync(id);
       if (activeTabId === id) {
         setActiveTabId(null);
-        // Will be reset by useEffect when cashFlows updates
       }
     }
   };
@@ -90,7 +97,6 @@ export default function CashFlowPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Flujo de Caja</h1>
@@ -100,7 +106,6 @@ export default function CashFlowPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="border-b border-gray-200">
         <div className="flex items-center gap-1 overflow-x-auto pb-px">
           {(cashFlows || []).map((cf: any) => (
@@ -116,14 +121,11 @@ export default function CashFlowPage() {
               `}
             >
               <span>{cf.name}</span>
-              <span className="text-xs text-gray-400">({cf.fiscal_year})</span>
             </button>
           ))}
 
           {isCreatingNew && (
-            <button
-              className="flex items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-blue-600 bg-white px-4 py-2.5 text-sm font-medium text-blue-600"
-            >
+            <button className="flex items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-blue-600 bg-white px-4 py-2.5 text-sm font-medium text-blue-600">
               <Plus className="h-3.5 w-3.5" />
               <span>Nuevo Proyecto</span>
             </button>
@@ -139,7 +141,6 @@ export default function CashFlowPage() {
         </div>
       </div>
 
-      {/* Tab Content */}
       {isCreatingNew ? (
         <CashFlowEditor
           mode="create"
@@ -200,28 +201,13 @@ function CashFlowEditor({
   const createMutation = useCreateCashFlow();
   const updateMutation = useUpdateCashFlow();
 
-  const [cashFlowName, setCashFlowName] = useState(mode === 'create' ? '' : '');
-  const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
+  const [cashFlowName, setCashFlowName] = useState('');
   const [displayValues, setDisplayValues] = useState<Record<string, string>>({});
 
-  const [periods, setPeriods] = useState<Record<number, CashFlowPeriodDTO>>(
-    Object.fromEntries(
-      Array.from({ length: 12 }, (_, i) => [
-        i + 1,
-        {
-          month: i + 1,
-          year: new Date().getFullYear(),
-          salesCollections: 0,
-          otherIncome: 0,
-          supplierPayments: 0,
-          payroll: 0,
-          rent: 0,
-          utilities: 0,
-          taxes: 0,
-          otherExpenses: 0,
-        },
-      ])
-    )
+  // Dynamic periods array (each element is a column)
+  const currentYear = new Date().getFullYear();
+  const [periods, setPeriods] = useState<CashFlowPeriodDTO[]>(
+    Array.from({ length: 12 }, (_, i) => createEmptyPeriod(i + 1, currentYear))
   );
 
   const DEFAULT_LABELS: Record<string, string> = {
@@ -256,44 +242,26 @@ function CashFlowEditor({
   useEffect(() => {
     if (cashFlow && mode === 'edit') {
       setCashFlowName(cashFlow.name);
-      setFiscalYear(cashFlow.fiscal_year);
 
-      const periodsMap: Record<number, CashFlowPeriodDTO> = {};
       if (cashFlow.periods && cashFlow.periods.length > 0) {
-        cashFlow.periods.forEach((period) => {
-          periodsMap[period.month] = {
-            month: period.month,
-            year: period.year,
-            salesCollections: period.sales_collections || 0,
-            otherIncome: period.other_income || 0,
-            supplierPayments: period.supplier_payments || 0,
-            payroll: period.payroll || 0,
-            rent: period.rent || 0,
-            utilities: period.utilities || 0,
-            taxes: period.taxes || 0,
-            otherExpenses: period.other_expenses || 0,
-          };
+        // Sort periods by year/month and map to DTO format
+        const sorted = [...cashFlow.periods].sort((a, b) => {
+          if (a.year !== b.year) return a.year - b.year;
+          return a.month - b.month;
         });
+        setPeriods(sorted.map(period => ({
+          month: period.month,
+          year: period.year,
+          salesCollections: period.sales_collections || 0,
+          otherIncome: period.other_income || 0,
+          supplierPayments: period.supplier_payments || 0,
+          payroll: period.payroll || 0,
+          rent: period.rent || 0,
+          utilities: period.utilities || 0,
+          taxes: period.taxes || 0,
+          otherExpenses: period.other_expenses || 0,
+        })));
       }
-
-      for (let month = 1; month <= 12; month++) {
-        if (!periodsMap[month]) {
-          periodsMap[month] = {
-            month,
-            year: cashFlow.fiscal_year,
-            salesCollections: 0,
-            otherIncome: 0,
-            supplierPayments: 0,
-            payroll: 0,
-            rent: 0,
-            utilities: 0,
-            taxes: 0,
-            otherExpenses: 0,
-          };
-        }
-      }
-
-      setPeriods(periodsMap);
 
       if (cashFlow.additional_items) {
         setAdditionalItems(cashFlow.additional_items);
@@ -307,11 +275,45 @@ function CashFlowEditor({
     }
   }, [cashFlow, mode]);
 
-  const handleValueChange = (month: number, field: keyof CashFlowPeriodDTO, value: number) => {
-    setPeriods(prev => ({
+  // Column management
+  const addColumn = () => {
+    const last = periods[periods.length - 1];
+    let nextMonth = last ? last.month + 1 : 1;
+    let nextYear = last ? last.year : currentYear;
+    if (nextMonth > 12) { nextMonth = 1; nextYear++; }
+    setPeriods(prev => [...prev, createEmptyPeriod(nextMonth, nextYear)]);
+  };
+
+  const removeColumn = () => {
+    if (periods.length <= 1) return;
+    if (!confirm('¿Eliminar la última columna? Se perderán los datos de ese periodo.')) return;
+    const lastIdx = periods.length;
+    setPeriods(prev => prev.slice(0, -1));
+    // Clean up amounts for removed column index
+    const colKey = lastIdx; // 1-based
+    setAdditionalItems(prev => ({
       ...prev,
-      [month]: { ...prev[month], [field]: value },
+      incomes: prev.incomes.map(item => {
+        const { [colKey]: _, ...rest } = item.amounts;
+        return { ...item, amounts: rest };
+      }),
+      expenses: prev.expenses.map(item => {
+        const { [colKey]: _, ...rest } = item.amounts;
+        return { ...item, amounts: rest };
+      }),
     }));
+  };
+
+  const updateColumnMonth = (colIdx: number, month: number) => {
+    setPeriods(prev => prev.map((p, i) => i === colIdx ? { ...p, month } : p));
+  };
+
+  const updateColumnYear = (colIdx: number, year: number) => {
+    setPeriods(prev => prev.map((p, i) => i === colIdx ? { ...p, year } : p));
+  };
+
+  const handleValueChange = (colIdx: number, field: keyof CashFlowPeriodDTO, value: number) => {
+    setPeriods(prev => prev.map((p, i) => i === colIdx ? { ...p, [field]: value } : p));
   };
 
   // Additional items handlers
@@ -334,7 +336,6 @@ function CashFlowEditor({
       ...prev,
       [type]: prev[type].filter(item => item.id !== id),
     }));
-    // Also remove any sub-items for this additional item
     setSubItems(prev => {
       const { [id]: _, ...rest } = prev;
       return rest;
@@ -348,11 +349,11 @@ function CashFlowEditor({
     }));
   };
 
-  const updateAdditionalItemAmount = (type: 'incomes' | 'expenses', id: string, month: number, amount: number) => {
+  const updateAdditionalItemAmount = (type: 'incomes' | 'expenses', id: string, colKey: number, amount: number) => {
     setAdditionalItems(prev => ({
       ...prev,
       [type]: prev[type].map(item =>
-        item.id === id ? { ...item, amounts: { ...item.amounts, [month]: amount } } : item
+        item.id === id ? { ...item, amounts: { ...item.amounts, [colKey]: amount } } : item
       ),
     }));
   };
@@ -390,45 +391,41 @@ function CashFlowEditor({
     }));
   };
 
-  const updateSubItemAmount = (parentKey: string, subItemId: string, month: number, amount: number) => {
+  const updateSubItemAmount = (parentKey: string, subItemId: string, colKey: number, amount: number) => {
     setSubItems(prev => ({
       ...prev,
       [parentKey]: (prev[parentKey] || []).map(item =>
-        item.id === subItemId ? { ...item, amounts: { ...item.amounts, [month]: amount } } : item
+        item.id === subItemId ? { ...item, amounts: { ...item.amounts, [colKey]: amount } } : item
       ),
     }));
   };
 
-  // Bundle sub-item props for row components
   const subProps: SubItemsHandlers = {
-    subItems,
-    expandedRows,
-    toggleRowExpand,
-    addSubItem,
-    removeSubItem,
-    updateSubItemName,
-    updateSubItemAmount,
-    subItemDisplayValues,
-    setSubItemDisplayValues,
+    subItems, expandedRows, toggleRowExpand, addSubItem,
+    removeSubItem, updateSubItemName, updateSubItemAmount,
+    subItemDisplayValues, setSubItemDisplayValues,
   };
 
-  const calculateMonthTotals = useCallback((month: number) => {
-    const period = periods[month];
+  // Calculate totals for a column (by index)
+  const calculateColumnTotals = useCallback((colIdx: number) => {
+    const period = periods[colIdx];
+    if (!period) return { totalInflows: 0, totalOutflows: 0, netCashFlow: 0 };
 
-    // Helper: get effective value for a key, using sub-item sum if sub-items exist
+    const colKey = colIdx + 1; // 1-based key for amounts
+
     const getEffective = (key: string, fallback: number) => {
       const items = subItems[key];
       if (items && items.length > 0) {
-        return items.reduce((s, item) => s + (item.amounts[month] || 0), 0);
+        return items.reduce((s, item) => s + (item.amounts[colKey] || 0), 0);
       }
       return fallback;
     };
 
     const additionalIncome = additionalItems.incomes.reduce(
-      (sum, item) => sum + getEffective(item.id, item.amounts[month] || 0), 0
+      (sum, item) => sum + getEffective(item.id, item.amounts[colKey] || 0), 0
     );
     const additionalExpense = additionalItems.expenses.reduce(
-      (sum, item) => sum + getEffective(item.id, item.amounts[month] || 0), 0
+      (sum, item) => sum + getEffective(item.id, item.amounts[colKey] || 0), 0
     );
 
     const totalInflows =
@@ -446,24 +443,21 @@ function CashFlowEditor({
       additionalExpense;
 
     const netCashFlow = totalInflows - totalOutflows;
-
     return { totalInflows, totalOutflows, netCashFlow };
   }, [periods, additionalItems, subItems]);
 
-  const calculateYearTotals = useCallback(() => {
+  const calculateGrandTotals = useCallback(() => {
     let totalInflows = 0;
     let totalOutflows = 0;
-
-    for (let month = 1; month <= 12; month++) {
-      const monthTotals = calculateMonthTotals(month);
-      totalInflows += monthTotals.totalInflows;
-      totalOutflows += monthTotals.totalOutflows;
+    for (let i = 0; i < periods.length; i++) {
+      const t = calculateColumnTotals(i);
+      totalInflows += t.totalInflows;
+      totalOutflows += t.totalOutflows;
     }
-
     return { totalInflows, totalOutflows, netCashFlow: totalInflows - totalOutflows };
-  }, [calculateMonthTotals]);
+  }, [calculateColumnTotals, periods.length]);
 
-  const yearTotals = calculateYearTotals();
+  const grandTotals = calculateGrandTotals();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -472,27 +466,23 @@ function CashFlowEditor({
       return;
     }
 
-    // Sync period values with sub-item sums before saving
-    const syncedPeriods = { ...periods };
+    // Sync period values with sub-item sums
     const staticFields: (keyof CashFlowPeriodDTO)[] = [
       'salesCollections', 'otherIncome', 'supplierPayments',
       'payroll', 'rent', 'utilities', 'taxes', 'otherExpenses',
     ];
 
-    for (let month = 1; month <= 12; month++) {
-      let needsUpdate = false;
-      const updated = { ...syncedPeriods[month] };
+    const syncedPeriods = periods.map((period, colIdx) => {
+      const colKey = colIdx + 1;
+      const updated = { ...period };
       for (const field of staticFields) {
         const items = subItems[field];
         if (items && items.length > 0) {
-          (updated as any)[field] = items.reduce((s, item) => s + (item.amounts[month] || 0), 0);
-          needsUpdate = true;
+          (updated as any)[field] = items.reduce((s, item) => s + (item.amounts[colKey] || 0), 0);
         }
       }
-      if (needsUpdate) {
-        syncedPeriods[month] = updated;
-      }
-    }
+      return updated;
+    });
 
     // Sync additional items with sub-item sums
     const syncedAdditionalItems: AdditionalItems = {
@@ -500,8 +490,8 @@ function CashFlowEditor({
         const items = subItems[item.id];
         if (items && items.length > 0) {
           const amounts: Record<number, number> = {};
-          for (let month = 1; month <= 12; month++) {
-            amounts[month] = items.reduce((s, si) => s + (si.amounts[month] || 0), 0);
+          for (let i = 0; i < periods.length; i++) {
+            amounts[i + 1] = items.reduce((s, si) => s + (si.amounts[i + 1] || 0), 0);
           }
           return { ...item, amounts };
         }
@@ -511,8 +501,8 @@ function CashFlowEditor({
         const items = subItems[item.id];
         if (items && items.length > 0) {
           const amounts: Record<number, number> = {};
-          for (let month = 1; month <= 12; month++) {
-            amounts[month] = items.reduce((s, si) => s + (si.amounts[month] || 0), 0);
+          for (let i = 0; i < periods.length; i++) {
+            amounts[i + 1] = items.reduce((s, si) => s + (si.amounts[i + 1] || 0), 0);
           }
           return { ...item, amounts };
         }
@@ -524,8 +514,7 @@ function CashFlowEditor({
 
     const dto = {
       name: cashFlowName,
-      fiscalYear,
-      periods: Object.values(syncedPeriods),
+      periods: syncedPeriods,
       additionalItems: syncedAdditionalItems,
     };
 
@@ -559,52 +548,26 @@ function CashFlowEditor({
   }
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
+  const colCount = periods.length;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-12">
       {/* General Info */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Nombre del Proyecto <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="name"
-                type="text"
-                required
-                value={cashFlowName}
-                onChange={(e) => setCashFlowName(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-400 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ej: Proyecto Principal 2025"
-              />
-            </div>
-            <div>
-              <label htmlFor="fiscalYear" className="block text-sm font-medium text-gray-700">
-                Año Fiscal <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="fiscalYear"
-                type="number"
-                required
-                min="2000"
-                max="2100"
-                value={fiscalYear}
-                onChange={(e) => {
-                  const year = parseInt(e.target.value);
-                  setFiscalYear(year);
-                  setPeriods(prev => {
-                    const updated = { ...prev };
-                    Object.keys(updated).forEach(key => {
-                      updated[parseInt(key)].year = year;
-                    });
-                    return updated;
-                  });
-                }}
-                className="mt-1 block w-full rounded-md border border-gray-400 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              Nombre del Proyecto <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              required
+              value={cashFlowName}
+              onChange={(e) => setCashFlowName(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-400 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ej: Proyecto Principal 2025"
+            />
           </div>
         </CardContent>
       </Card>
@@ -612,31 +575,64 @@ function CashFlowEditor({
       {/* Cash Flow Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Flujo de Caja Mensual - {fiscalYear}</CardTitle>
-          <CardDescription>Valores en pesos colombianos (COP)</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Flujo de Caja Mensual</CardTitle>
+              <CardDescription>Valores en pesos colombianos (COP) — {colCount} {colCount === 1 ? 'periodo' : 'periodos'}</CardDescription>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="outline" size="sm" onClick={addColumn} title="Agregar columna">
+                <Plus className="h-4 w-4 mr-1" />
+                Periodo
+              </Button>
+              {periods.length > 1 && (
+                <Button type="button" variant="outline" size="sm" onClick={removeColumn} title="Quitar última columna"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                  <Minus className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
+                {/* Month/Year selector row */}
                 <tr className="bg-gray-100">
                   <th className="sticky left-0 bg-gray-100 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[220px]">
                     Concepto
                   </th>
-                  {MONTHS.map((month, idx) => (
-                    <th key={idx} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-900 min-w-[100px]">
-                      {month}
+                  {periods.map((period, idx) => (
+                    <th key={idx} className="border border-gray-300 px-1 py-1 text-center min-w-[110px]">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <select
+                          value={period.month}
+                          onChange={(e) => updateColumnMonth(idx, parseInt(e.target.value))}
+                          className="w-full text-xs font-semibold text-gray-800 bg-transparent border-0 focus:ring-1 focus:ring-blue-500 rounded text-center cursor-pointer"
+                        >
+                          {MONTH_NAMES.map((name, mIdx) => (
+                            <option key={mIdx} value={mIdx + 1}>{name}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          value={period.year}
+                          onChange={(e) => updateColumnYear(idx, parseInt(e.target.value) || currentYear)}
+                          className="w-16 text-[10px] text-gray-500 text-center bg-transparent border-0 focus:ring-1 focus:ring-blue-500 rounded [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
                     </th>
                   ))}
                   <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-gray-900 bg-gray-200 min-w-[120px]">
-                    Total Año
+                    Total
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {/* ENTRADAS DE EFECTIVO */}
                 <tr className="bg-green-50">
-                  <td colSpan={14} className="border border-gray-300 px-3 py-2 font-bold text-green-800">
+                  <td colSpan={colCount + 2} className="border border-gray-300 px-3 py-2 font-bold text-green-800">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4" />
                       ENTRADAS DE EFECTIVO
@@ -645,51 +641,36 @@ function CashFlowEditor({
                 </tr>
 
                 <CashFlowRow
-                  label={getLabel('salesCollections')}
-                  field="salesCollections"
-                  periods={periods}
-                  onChange={handleValueChange}
+                  label={getLabel('salesCollections')} field="salesCollections"
+                  periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('salesCollections', name)}
-                  yearTotal={Object.values(periods).reduce((sum, p) => sum + p.salesCollections, 0)}
-                  displayValues={displayValues}
-                  setDisplayValues={setDisplayValues}
+                  displayValues={displayValues} setDisplayValues={setDisplayValues}
                   {...subProps}
                 />
                 <CashFlowRow
-                  label={getLabel('otherIncome')}
-                  field="otherIncome"
-                  periods={periods}
-                  onChange={handleValueChange}
+                  label={getLabel('otherIncome')} field="otherIncome"
+                  periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('otherIncome', name)}
-                  yearTotal={Object.values(periods).reduce((sum, p) => sum + p.otherIncome, 0)}
-                  displayValues={displayValues}
-                  setDisplayValues={setDisplayValues}
+                  displayValues={displayValues} setDisplayValues={setDisplayValues}
                   {...subProps}
                 />
 
-                {/* Additional Income Rows */}
                 {additionalItems.incomes.map((item) => (
                   <DynamicCashFlowRow
-                    key={item.id}
-                    item={item}
-                    type="incomes"
+                    key={item.id} item={item} type="incomes"
+                    periods={periods}
                     onNameChange={(name) => updateAdditionalItemName('incomes', item.id, name)}
-                    onAmountChange={(month, amount) => updateAdditionalItemAmount('incomes', item.id, month, amount)}
+                    onAmountChange={(colKey, amount) => updateAdditionalItemAmount('incomes', item.id, colKey, amount)}
                     onRemove={() => removeAdditionalItem('incomes', item.id)}
-                    displayValues={additionalDisplayValues}
-                    setDisplayValues={setAdditionalDisplayValues}
+                    displayValues={additionalDisplayValues} setDisplayValues={setAdditionalDisplayValues}
                     {...subProps}
                   />
                 ))}
 
-                {/* Add Income Button Row */}
                 <tr>
-                  <td colSpan={14} className="border border-gray-300 px-3 py-1">
-                    <button
-                      type="button"
-                      onClick={addAdditionalIncome}
-                      className="flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-800 transition-colors py-1"
-                    >
+                  <td colSpan={colCount + 2} className="border border-gray-300 px-3 py-1">
+                    <button type="button" onClick={addAdditionalIncome}
+                      className="flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-800 transition-colors py-1">
                       <Plus className="h-3.5 w-3.5" />
                       Agregar Ingreso
                     </button>
@@ -701,19 +682,19 @@ function CashFlowEditor({
                   <td className="sticky left-0 bg-green-100 border border-gray-300 px-3 py-2 text-green-800">
                     Total Entradas
                   </td>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                    <td key={month} className="border border-gray-300 px-2 py-2 text-right text-green-800 font-semibold">
-                      {formatCurrency(calculateMonthTotals(month).totalInflows)}
+                  {periods.map((_, idx) => (
+                    <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-green-800 font-semibold">
+                      {formatCurrency(calculateColumnTotals(idx).totalInflows)}
                     </td>
                   ))}
                   <td className="border border-gray-300 px-3 py-2 text-right bg-green-200 font-bold text-green-800">
-                    {formatCurrency(yearTotals.totalInflows)}
+                    {formatCurrency(grandTotals.totalInflows)}
                   </td>
                 </tr>
 
                 {/* SALIDAS DE EFECTIVO */}
                 <tr className="bg-red-50">
-                  <td colSpan={14} className="border border-gray-300 px-3 py-2 font-bold text-red-800">
+                  <td colSpan={colCount + 2} className="border border-gray-300 px-3 py-2 font-bold text-red-800">
                     <div className="flex items-center gap-2">
                       <TrendingDown className="h-4 w-4" />
                       SALIDAS DE EFECTIVO
@@ -723,52 +704,39 @@ function CashFlowEditor({
 
                 <CashFlowRow label={getLabel('supplierPayments')} field="supplierPayments" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('supplierPayments', name)}
-                  yearTotal={Object.values(periods).reduce((sum, p) => sum + p.supplierPayments, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('payroll')} field="payroll" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('payroll', name)}
-                  yearTotal={Object.values(periods).reduce((sum, p) => sum + p.payroll, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('rent')} field="rent" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('rent', name)}
-                  yearTotal={Object.values(periods).reduce((sum, p) => sum + p.rent, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('utilities')} field="utilities" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('utilities', name)}
-                  yearTotal={Object.values(periods).reduce((sum, p) => sum + p.utilities, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('taxes')} field="taxes" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('taxes', name)}
-                  yearTotal={Object.values(periods).reduce((sum, p) => sum + p.taxes, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('otherExpenses')} field="otherExpenses" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('otherExpenses', name)}
-                  yearTotal={Object.values(periods).reduce((sum, p) => sum + p.otherExpenses, 0)}
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
 
-                {/* Additional Expense Rows */}
                 {additionalItems.expenses.map((item) => (
                   <DynamicCashFlowRow
-                    key={item.id}
-                    item={item}
-                    type="expenses"
+                    key={item.id} item={item} type="expenses"
+                    periods={periods}
                     onNameChange={(name) => updateAdditionalItemName('expenses', item.id, name)}
-                    onAmountChange={(month, amount) => updateAdditionalItemAmount('expenses', item.id, month, amount)}
+                    onAmountChange={(colKey, amount) => updateAdditionalItemAmount('expenses', item.id, colKey, amount)}
                     onRemove={() => removeAdditionalItem('expenses', item.id)}
-                    displayValues={additionalDisplayValues}
-                    setDisplayValues={setAdditionalDisplayValues}
+                    displayValues={additionalDisplayValues} setDisplayValues={setAdditionalDisplayValues}
                     {...subProps}
                   />
                 ))}
 
-                {/* Add Expense Button Row */}
                 <tr>
-                  <td colSpan={14} className="border border-gray-300 px-3 py-1">
-                    <button
-                      type="button"
-                      onClick={addAdditionalExpense}
-                      className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 transition-colors py-1"
-                    >
+                  <td colSpan={colCount + 2} className="border border-gray-300 px-3 py-1">
+                    <button type="button" onClick={addAdditionalExpense}
+                      className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 transition-colors py-1">
                       <Plus className="h-3.5 w-3.5" />
                       Agregar Gasto
                     </button>
@@ -780,40 +748,39 @@ function CashFlowEditor({
                   <td className="sticky left-0 bg-red-100 border border-gray-300 px-3 py-2 text-red-800">
                     Total Salidas
                   </td>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                    <td key={month} className="border border-gray-300 px-2 py-2 text-right text-red-800 font-semibold">
-                      {formatCurrency(calculateMonthTotals(month).totalOutflows)}
+                  {periods.map((_, idx) => (
+                    <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-red-800 font-semibold">
+                      {formatCurrency(calculateColumnTotals(idx).totalOutflows)}
                     </td>
                   ))}
                   <td className="border border-gray-300 px-3 py-2 text-right bg-red-200 font-bold text-red-800">
-                    {formatCurrency(yearTotals.totalOutflows)}
+                    {formatCurrency(grandTotals.totalOutflows)}
                   </td>
                 </tr>
 
                 {/* FLUJO NETO */}
                 <tr className="bg-blue-100 font-bold text-lg">
-                  <td className={`sticky left-0 bg-blue-100 border border-gray-300 px-3 py-2 ${yearTotals.netCashFlow < 0 ? 'text-red-800' : 'text-green-800'}`}>
+                  <td className={`sticky left-0 bg-blue-100 border border-gray-300 px-3 py-2 ${grandTotals.netCashFlow < 0 ? 'text-red-800' : 'text-green-800'}`}>
                     FLUJO NETO
                   </td>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
-                    const totals = calculateMonthTotals(month);
+                  {periods.map((_, idx) => {
+                    const totals = calculateColumnTotals(idx);
                     return (
-                      <td key={month} className={`border border-gray-300 px-2 py-2 text-right font-bold ${totals.netCashFlow < 0 ? 'text-red-800' : 'text-green-800'}`}>
+                      <td key={idx} className={`border border-gray-300 px-2 py-2 text-right font-bold ${totals.netCashFlow < 0 ? 'text-red-800' : 'text-green-800'}`}>
                         {formatCurrency(totals.netCashFlow)}
                       </td>
                     );
                   })}
-                  <td className={`border border-gray-300 px-3 py-2 text-right bg-blue-200 font-bold ${yearTotals.netCashFlow < 0 ? 'text-red-800' : 'text-green-800'}`}>
-                    {formatCurrency(yearTotals.netCashFlow)}
+                  <td className={`border border-gray-300 px-3 py-2 text-right bg-blue-200 font-bold ${grandTotals.netCashFlow < 0 ? 'text-red-800' : 'text-green-800'}`}>
+                    {formatCurrency(grandTotals.netCashFlow)}
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          {/* Analysis */}
-          {yearTotals.totalInflows > 0 && (
-            <CashFlowAnalysis yearTotals={yearTotals} calculateMonthTotals={calculateMonthTotals} />
+          {grandTotals.totalInflows > 0 && (
+            <CashFlowAnalysis grandTotals={grandTotals} calculateColumnTotals={calculateColumnTotals} columnCount={periods.length} />
           )}
         </CardContent>
       </Card>
@@ -823,20 +790,13 @@ function CashFlowEditor({
         <div className="flex gap-2">
           {mode === 'edit' && cashFlowId && (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleExportPDF}
-              >
+              <Button type="button" variant="outline" onClick={handleExportPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Descargar PDF
               </Button>
-              <Button
-                type="button"
-                variant="outline"
+              <Button type="button" variant="outline"
                 onClick={() => onDelete?.(cashFlowId, cashFlowName)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
+                className="text-red-600 hover:text-red-700 hover:bg-red-50">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </Button>
@@ -862,16 +822,15 @@ function CashFlowEditor({
 // ==========================================
 
 function CashFlowRow({
-  label, field, periods, onChange, onLabelChange, yearTotal, displayValues, setDisplayValues,
+  label, field, periods, onChange, onLabelChange, displayValues, setDisplayValues,
   subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
   updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
 }: {
   label: string;
   field: keyof CashFlowPeriodDTO;
-  periods: Record<number, CashFlowPeriodDTO>;
-  onChange: (month: number, field: keyof CashFlowPeriodDTO, value: number) => void;
+  periods: CashFlowPeriodDTO[];
+  onChange: (colIdx: number, field: keyof CashFlowPeriodDTO, value: number) => void;
   onLabelChange?: (name: string) => void;
-  yearTotal: number;
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 } & SubItemsHandlers) {
@@ -879,171 +838,130 @@ function CashFlowRow({
   const isExpanded = expandedRows[field] || false;
   const hasChildren = mySubItems.length > 0;
 
-  // Calculate effective year total (from sub-items if they exist)
-  const effectiveYearTotal = hasChildren
-    ? Array.from({ length: 12 }, (_, i) => i + 1).reduce(
-        (sum, month) => sum + mySubItems.reduce((s, item) => s + (item.amounts[month] || 0), 0), 0
-      )
-    : yearTotal;
+  // Calculate year total
+  const yearTotal = hasChildren
+    ? periods.reduce((sum, _, idx) => {
+        const colKey = idx + 1;
+        return sum + mySubItems.reduce((s, item) => s + (item.amounts[colKey] || 0), 0);
+      }, 0)
+    : periods.reduce((sum, p) => sum + ((p[field] as number) || 0), 0);
 
   return (
     <>
       <tr className="hover:bg-gray-50">
         <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
           <div className="flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => toggleRowExpand(field)}
-              className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200"
-              title={isExpanded ? 'Colapsar' : 'Expandir'}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-              )}
+            <button type="button" onClick={() => toggleRowExpand(field)}
+              className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200" title={isExpanded ? 'Colapsar' : 'Expandir'}>
+              {isExpanded
+                ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
             </button>
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => onLabelChange?.(e.target.value)}
-              className={`w-full px-1 py-1 text-sm text-gray-700 border-0 focus:ring-1 focus:ring-blue-500 rounded ${hasChildren ? 'font-semibold' : 'font-medium'}`}
-            />
+            <input type="text" value={label} onChange={(e) => onLabelChange?.(e.target.value)}
+              className={`w-full px-1 py-1 text-sm text-gray-700 border-0 focus:ring-1 focus:ring-blue-500 rounded ${hasChildren ? 'font-semibold' : 'font-medium'}`} />
             {hasChildren && (
-              <span className="flex-shrink-0 text-[10px] bg-blue-100 text-blue-600 rounded-full px-1.5 py-0.5 font-medium">
-                {mySubItems.length}
-              </span>
+              <span className="flex-shrink-0 text-[10px] bg-blue-100 text-blue-600 rounded-full px-1.5 py-0.5 font-medium">{mySubItems.length}</span>
             )}
-            <button
-              type="button"
-              onClick={() => addSubItem(field)}
-              className="flex-shrink-0 p-0.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50"
-              title="Agregar sub-rubro"
-            >
+            <button type="button" onClick={() => addSubItem(field)}
+              className="flex-shrink-0 p-0.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50" title="Agregar sub-rubro">
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
         </td>
-        {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
+        {periods.map((period, idx) => {
+          const colKey = idx + 1;
           if (hasChildren) {
-            // Read-only: show sum of sub-items
-            const monthSum = mySubItems.reduce((s, item) => s + (item.amounts[month] || 0), 0);
+            const monthSum = mySubItems.reduce((s, item) => s + (item.amounts[colKey] || 0), 0);
             return (
-              <td key={month} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40">
+              <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40">
                 {monthSum > 0 ? formatCurrency(monthSum) : '$0'}
               </td>
             );
           }
-          // Editable (no sub-items)
-          const inputKey = `${month}-${field}`;
-          const currentValue = periods[month][field] || 0;
+          const inputKey = `${idx}-${field}`;
+          const currentValue = (period[field] as number) || 0;
           return (
-            <td key={month} className="border border-gray-300 px-1 py-1">
-              <input
-                type="text"
+            <td key={idx} className="border border-gray-300 px-1 py-1">
+              <input type="text"
                 value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
                 onChange={(e) => {
                   setDisplayValues(prev => ({ ...prev, [inputKey]: e.target.value }));
-                  onChange(month, field, parseNumberInput(e.target.value));
+                  onChange(idx, field, parseNumberInput(e.target.value));
                 }}
                 onBlur={(e) => {
                   const numericValue = parseNumberInput(e.target.value);
-                  setDisplayValues(prev => ({
-                    ...prev,
-                    [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '',
-                  }));
+                  setDisplayValues(prev => ({ ...prev, [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '' }));
                 }}
                 className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
-                placeholder="0"
-              />
+                placeholder="0" />
             </td>
           );
         })}
         <td className="border border-gray-300 px-3 py-2 text-right bg-gray-100 font-semibold text-gray-900">
-          {formatCurrency(effectiveYearTotal)}
+          {formatCurrency(yearTotal)}
         </td>
       </tr>
-
-      {/* Sub-item rows */}
       {isExpanded && mySubItems.map(subItem => (
-        <SubItemRow
-          key={subItem.id}
-          item={subItem}
-          parentKey={field}
+        <SubItemRow key={subItem.id} item={subItem} parentKey={field} periods={periods}
           onNameChange={(name) => updateSubItemName(field, subItem.id, name)}
-          onAmountChange={(month, amount) => updateSubItemAmount(field, subItem.id, month, amount)}
+          onAmountChange={(colKey, amount) => updateSubItemAmount(field, subItem.id, colKey, amount)}
           onRemove={() => removeSubItem(field, subItem.id)}
-          displayValues={subItemDisplayValues}
-          setDisplayValues={setSubItemDisplayValues}
-        />
+          displayValues={subItemDisplayValues} setDisplayValues={setSubItemDisplayValues} />
       ))}
     </>
   );
 }
 
 // ==========================================
-// SubItemRow Component (sub-rubro row)
+// SubItemRow Component
 // ==========================================
 
 function SubItemRow({
-  item, parentKey, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
+  item, parentKey, periods, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
 }: {
   item: AdditionalItem;
   parentKey: string;
+  periods: CashFlowPeriodDTO[];
   onNameChange: (name: string) => void;
-  onAmountChange: (month: number, amount: number) => void;
+  onAmountChange: (colKey: number, amount: number) => void;
   onRemove: () => void;
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }) {
-  const yearTotal = Array.from({ length: 12 }, (_, i) => i + 1).reduce(
-    (sum, month) => sum + (item.amounts[month] || 0), 0
-  );
+  const yearTotal = periods.reduce((sum, _, idx) => sum + (item.amounts[idx + 1] || 0), 0);
 
   return (
     <tr className="hover:bg-blue-50/60 bg-blue-50/30">
       <td className="sticky left-0 bg-blue-50/30 hover:bg-blue-50/60 border border-gray-300 px-1 py-1">
         <div className="flex items-center gap-1 pl-5">
           <span className="text-gray-300 text-xs mr-0.5">└</span>
-          <button
-            type="button"
-            onClick={onRemove}
-            className="flex-shrink-0 p-0.5 rounded text-red-300 hover:text-red-500 hover:bg-red-50"
-            title="Eliminar sub-rubro"
-          >
+          <button type="button" onClick={onRemove}
+            className="flex-shrink-0 p-0.5 rounded text-red-300 hover:text-red-500 hover:bg-red-50" title="Eliminar sub-rubro">
             <X className="h-3 w-3" />
           </button>
-          <input
-            type="text"
-            value={item.name}
-            onChange={(e) => onNameChange(e.target.value)}
+          <input type="text" value={item.name} onChange={(e) => onNameChange(e.target.value)}
             className="w-full px-1 py-0.5 text-xs font-medium text-gray-600 bg-transparent border-0 focus:ring-1 focus:ring-blue-400 rounded placeholder-gray-400"
-            placeholder="Nombre del sub-rubro..."
-          />
+            placeholder="Nombre del sub-rubro..." />
         </div>
       </td>
-      {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
-        const inputKey = `sub-${item.id}-${month}`;
-        const currentValue = item.amounts[month] || 0;
+      {periods.map((_, idx) => {
+        const colKey = idx + 1;
+        const inputKey = `sub-${item.id}-${colKey}`;
+        const currentValue = item.amounts[colKey] || 0;
         return (
-          <td key={month} className="border border-gray-300 px-1 py-0.5 bg-blue-50/30">
-            <input
-              type="text"
+          <td key={idx} className="border border-gray-300 px-1 py-0.5 bg-blue-50/30">
+            <input type="text"
               value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
               onChange={(e) => {
                 setDisplayValues(prev => ({ ...prev, [inputKey]: e.target.value }));
-                onAmountChange(month, parseNumberInput(e.target.value));
+                onAmountChange(colKey, parseNumberInput(e.target.value));
               }}
               onBlur={(e) => {
                 const numericValue = parseNumberInput(e.target.value);
-                setDisplayValues(prev => ({
-                  ...prev,
-                  [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '',
-                }));
+                setDisplayValues(prev => ({ ...prev, [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '' }));
               }}
               className="w-full text-right px-1 py-0.5 text-xs text-gray-700 bg-transparent border-0 focus:ring-1 focus:ring-blue-400 rounded"
-              placeholder="0"
-            />
+              placeholder="0" />
           </td>
         );
       })}
@@ -1059,14 +977,15 @@ function SubItemRow({
 // ==========================================
 
 function DynamicCashFlowRow({
-  item, type, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
+  item, type, periods, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
   subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
   updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
 }: {
   item: AdditionalItem;
   type: 'incomes' | 'expenses';
+  periods: CashFlowPeriodDTO[];
   onNameChange: (name: string) => void;
-  onAmountChange: (month: number, amount: number) => void;
+  onAmountChange: (colKey: number, amount: number) => void;
   onRemove: () => void;
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -1077,92 +996,65 @@ function DynamicCashFlowRow({
   const color = type === 'incomes' ? 'green' : 'red';
 
   const effectiveYearTotal = hasChildren
-    ? Array.from({ length: 12 }, (_, i) => i + 1).reduce(
-        (sum, month) => sum + mySubItems.reduce((s, si) => s + (si.amounts[month] || 0), 0), 0
-      )
-    : Array.from({ length: 12 }, (_, i) => i + 1).reduce(
-        (sum, month) => sum + (item.amounts[month] || 0), 0
-      );
+    ? periods.reduce((sum, _, idx) => {
+        const colKey = idx + 1;
+        return sum + mySubItems.reduce((s, si) => s + (si.amounts[colKey] || 0), 0);
+      }, 0)
+    : periods.reduce((sum, _, idx) => sum + (item.amounts[idx + 1] || 0), 0);
 
   return (
     <>
       <tr className="hover:bg-gray-50">
         <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
           <div className="flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => toggleRowExpand(item.id)}
-              className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200"
-              title={isExpanded ? 'Colapsar' : 'Expandir'}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-              )}
+            <button type="button" onClick={() => toggleRowExpand(item.id)}
+              className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200" title={isExpanded ? 'Colapsar' : 'Expandir'}>
+              {isExpanded
+                ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
             </button>
-            <button
-              type="button"
-              onClick={onRemove}
-              className={`flex-shrink-0 p-0.5 rounded text-${color}-400 hover:text-${color}-600 hover:bg-${color}-50`}
-              title="Eliminar"
-            >
+            <button type="button" onClick={onRemove}
+              className={`flex-shrink-0 p-0.5 rounded text-${color}-400 hover:text-${color}-600 hover:bg-${color}-50`} title="Eliminar">
               <X className="h-3.5 w-3.5" />
             </button>
-            <input
-              type="text"
-              value={item.name}
-              onChange={(e) => onNameChange(e.target.value)}
+            <input type="text" value={item.name} onChange={(e) => onNameChange(e.target.value)}
               className={`w-full px-1 py-1 text-sm text-gray-700 border-0 focus:ring-1 focus:ring-${color}-500 rounded placeholder-gray-400 ${hasChildren ? 'font-semibold' : 'font-medium'}`}
-              placeholder={type === 'incomes' ? 'Nombre del ingreso...' : 'Nombre del gasto...'}
-            />
+              placeholder={type === 'incomes' ? 'Nombre del ingreso...' : 'Nombre del gasto...'} />
             {hasChildren && (
-              <span className="flex-shrink-0 text-[10px] bg-blue-100 text-blue-600 rounded-full px-1.5 py-0.5 font-medium">
-                {mySubItems.length}
-              </span>
+              <span className="flex-shrink-0 text-[10px] bg-blue-100 text-blue-600 rounded-full px-1.5 py-0.5 font-medium">{mySubItems.length}</span>
             )}
-            <button
-              type="button"
-              onClick={() => addSubItem(item.id)}
-              className="flex-shrink-0 p-0.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50"
-              title="Agregar sub-rubro"
-            >
+            <button type="button" onClick={() => addSubItem(item.id)}
+              className="flex-shrink-0 p-0.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50" title="Agregar sub-rubro">
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
         </td>
-        {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
+        {periods.map((_, idx) => {
+          const colKey = idx + 1;
           if (hasChildren) {
-            // Read-only: show sum of sub-items
-            const monthSum = mySubItems.reduce((s, si) => s + (si.amounts[month] || 0), 0);
+            const monthSum = mySubItems.reduce((s, si) => s + (si.amounts[colKey] || 0), 0);
             return (
-              <td key={month} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40">
+              <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40">
                 {monthSum > 0 ? formatCurrency(monthSum) : '$0'}
               </td>
             );
           }
-          // Editable (no sub-items)
-          const inputKey = `${item.id}-${month}`;
-          const currentValue = item.amounts[month] || 0;
+          const inputKey = `${item.id}-${colKey}`;
+          const currentValue = item.amounts[colKey] || 0;
           return (
-            <td key={month} className="border border-gray-300 px-1 py-1">
-              <input
-                type="text"
+            <td key={idx} className="border border-gray-300 px-1 py-1">
+              <input type="text"
                 value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
                 onChange={(e) => {
                   setDisplayValues(prev => ({ ...prev, [inputKey]: e.target.value }));
-                  onAmountChange(month, parseNumberInput(e.target.value));
+                  onAmountChange(colKey, parseNumberInput(e.target.value));
                 }}
                 onBlur={(e) => {
                   const numericValue = parseNumberInput(e.target.value);
-                  setDisplayValues(prev => ({
-                    ...prev,
-                    [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '',
-                  }));
+                  setDisplayValues(prev => ({ ...prev, [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '' }));
                 }}
                 className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
-                placeholder="0"
-              />
+                placeholder="0" />
             </td>
           );
         })}
@@ -1170,19 +1062,12 @@ function DynamicCashFlowRow({
           {formatCurrency(effectiveYearTotal)}
         </td>
       </tr>
-
-      {/* Sub-item rows */}
       {isExpanded && mySubItems.map(subItem => (
-        <SubItemRow
-          key={subItem.id}
-          item={subItem}
-          parentKey={item.id}
+        <SubItemRow key={subItem.id} item={subItem} parentKey={item.id} periods={periods}
           onNameChange={(name) => updateSubItemName(item.id, subItem.id, name)}
-          onAmountChange={(month, amount) => updateSubItemAmount(item.id, subItem.id, month, amount)}
+          onAmountChange={(colKey, amount) => updateSubItemAmount(item.id, subItem.id, colKey, amount)}
           onRemove={() => removeSubItem(item.id, subItem.id)}
-          displayValues={subItemDisplayValues}
-          setDisplayValues={setSubItemDisplayValues}
-        />
+          displayValues={subItemDisplayValues} setDisplayValues={setSubItemDisplayValues} />
       ))}
     </>
   );
@@ -1193,25 +1078,27 @@ function DynamicCashFlowRow({
 // ==========================================
 
 function CashFlowAnalysis({
-  yearTotals,
-  calculateMonthTotals,
+  grandTotals,
+  calculateColumnTotals,
+  columnCount,
 }: {
-  yearTotals: { totalInflows: number; totalOutflows: number; netCashFlow: number };
-  calculateMonthTotals: (month: number) => { totalInflows: number; totalOutflows: number; netCashFlow: number };
+  grandTotals: { totalInflows: number; totalOutflows: number; netCashFlow: number };
+  calculateColumnTotals: (colIdx: number) => { totalInflows: number; totalOutflows: number; netCashFlow: number };
+  columnCount: number;
 }) {
-  const monthlyAnalysis = Array.from({ length: 12 }, (_, i) => i + 1).map(month => ({
-    month,
-    ...calculateMonthTotals(month),
+  const columnAnalysis = Array.from({ length: columnCount }, (_, i) => ({
+    col: i,
+    ...calculateColumnTotals(i),
   }));
-  const positiveMonths = monthlyAnalysis.filter(m => m.netCashFlow > 0).length;
-  const negativeMonths = monthlyAnalysis.filter(m => m.netCashFlow < 0).length;
-  const avgMonthlyFlow = yearTotals.netCashFlow / 12;
+  const positiveColumns = columnAnalysis.filter(c => c.netCashFlow > 0).length;
+  const negativeColumns = columnAnalysis.filter(c => c.netCashFlow < 0).length;
+  const avgFlow = columnCount > 0 ? grandTotals.netCashFlow / columnCount : 0;
 
   return (
     <div className="mt-6 space-y-4">
       <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
         <div className="flex items-start gap-3">
-          {yearTotals.netCashFlow >= 0 ? (
+          {grandTotals.netCashFlow >= 0 ? (
             <TrendingUp className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
           ) : (
             <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
@@ -1219,12 +1106,12 @@ function CashFlowAnalysis({
           <div className="flex-1">
             <p className="font-bold text-gray-900 text-lg mb-2">Análisis del Flujo Operacional</p>
             <p className="text-sm text-gray-700">
-              {yearTotals.netCashFlow >= 0 ? (
+              {grandTotals.netCashFlow >= 0 ? (
                 <>Tu negocio genera un flujo de caja operacional <strong className="text-green-700">positivo</strong> de{' '}
-                <strong>{formatCurrency(yearTotals.netCashFlow)}</strong> durante el año.</>
+                <strong>{formatCurrency(grandTotals.netCashFlow)}</strong> en el periodo analizado.</>
               ) : (
                 <>Tu negocio presenta un flujo de caja operacional <strong className="text-red-700">negativo</strong> de{' '}
-                <strong>{formatCurrency(Math.abs(yearTotals.netCashFlow))}</strong> durante el año.</>
+                <strong>{formatCurrency(Math.abs(grandTotals.netCashFlow))}</strong> en el periodo analizado.</>
               )}
             </p>
           </div>
@@ -1236,26 +1123,26 @@ function CashFlowAnalysis({
           <p className="font-semibold text-blue-900 mb-3">Indicadores Clave</p>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-700">Meses con flujo positivo:</span>
-              <span className="font-semibold text-green-700">{positiveMonths} de 12</span>
+              <span className="text-gray-700">Periodos con flujo positivo:</span>
+              <span className="font-semibold text-green-700">{positiveColumns} de {columnCount}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-700">Meses con flujo negativo:</span>
-              <span className="font-semibold text-red-700">{negativeMonths} de 12</span>
+              <span className="text-gray-700">Periodos con flujo negativo:</span>
+              <span className="font-semibold text-red-700">{negativeColumns} de {columnCount}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-700">Flujo promedio mensual:</span>
-              <span className={`font-semibold ${avgMonthlyFlow >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {formatCurrency(avgMonthlyFlow)}
+              <span className="text-gray-700">Flujo promedio por periodo:</span>
+              <span className={`font-semibold ${avgFlow >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                {formatCurrency(avgFlow)}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t border-blue-300">
-              <span className="text-gray-700">Total entradas anuales:</span>
-              <span className="font-semibold text-green-700">{formatCurrency(yearTotals.totalInflows)}</span>
+              <span className="text-gray-700">Total entradas:</span>
+              <span className="font-semibold text-green-700">{formatCurrency(grandTotals.totalInflows)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-700">Total salidas anuales:</span>
-              <span className="font-semibold text-red-700">{formatCurrency(yearTotals.totalOutflows)}</span>
+              <span className="text-gray-700">Total salidas:</span>
+              <span className="font-semibold text-red-700">{formatCurrency(grandTotals.totalOutflows)}</span>
             </div>
           </div>
         </div>
@@ -1263,31 +1150,31 @@ function CashFlowAnalysis({
         <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
           <p className="font-semibold text-amber-900 mb-3">Recomendaciones</p>
           <div className="space-y-2 text-sm text-gray-700">
-            {negativeMonths > positiveMonths && (
+            {negativeColumns > positiveColumns && (
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                <p><strong>Crítico:</strong> Tienes más meses negativos ({negativeMonths}) que positivos ({positiveMonths}). Prioriza reducir gastos operativos o aumentar las ventas.</p>
+                <p><strong>Crítico:</strong> Tienes más periodos negativos ({negativeColumns}) que positivos ({positiveColumns}). Prioriza reducir gastos operativos o aumentar las ventas.</p>
               </div>
             )}
-            {yearTotals.totalOutflows > yearTotals.totalInflows * 0.9 && yearTotals.netCashFlow >= 0 && (
+            {grandTotals.totalOutflows > grandTotals.totalInflows * 0.9 && grandTotals.netCashFlow >= 0 && (
               <div className="flex items-start gap-2">
                 <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
                 <p><strong>Atención:</strong> Tus salidas representan más del 90% de tus entradas. Busca optimizar costos.</p>
               </div>
             )}
-            {positiveMonths >= 9 && yearTotals.netCashFlow > 0 && (
+            {positiveColumns >= Math.ceil(columnCount * 0.75) && grandTotals.netCashFlow > 0 && (
               <div className="flex items-start gap-2">
                 <TrendingUp className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <p><strong>Excelente:</strong> Tu negocio muestra consistencia con {positiveMonths} meses positivos.</p>
+                <p><strong>Excelente:</strong> Tu negocio muestra consistencia con {positiveColumns} periodos positivos.</p>
               </div>
             )}
-            {yearTotals.netCashFlow < 0 && (
+            {grandTotals.netCashFlow < 0 && (
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                <p><strong>Urgente:</strong> Analiza los meses con mayor déficit. Puede requerir ajuste de precios o reducción de costos.</p>
+                <p><strong>Urgente:</strong> Analiza los periodos con mayor déficit. Puede requerir ajuste de precios o reducción de costos.</p>
               </div>
             )}
-            {positiveMonths >= 6 && negativeMonths >= 6 && (
+            {positiveColumns >= Math.ceil(columnCount * 0.5) && negativeColumns >= Math.ceil(columnCount * 0.5) && (
               <div className="flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <p>Flujos irregulares. Identifica patrones estacionales y planifica mejor los gastos.</p>

@@ -4,8 +4,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Plus, TrendingUp, TrendingDown, DollarSign, Trash2, Calendar,
-  Download, AlertCircle, Info, X, Save
+  Plus, TrendingUp, TrendingDown, Trash2,
+  Download, AlertCircle, Info, X, Save, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -24,6 +24,19 @@ const MONTHS = [
 
 function generateId() {
   return Math.random().toString(36).substring(2, 15);
+}
+
+// Sub-item handler props shared across row components
+interface SubItemsHandlers {
+  subItems: Record<string, AdditionalItem[]>;
+  expandedRows: Record<string, boolean>;
+  toggleRowExpand: (key: string) => void;
+  addSubItem: (parentKey: string) => void;
+  removeSubItem: (parentKey: string, subItemId: string) => void;
+  updateSubItemName: (parentKey: string, subItemId: string, name: string) => void;
+  updateSubItemAmount: (parentKey: string, subItemId: string, month: number, amount: number) => void;
+  subItemDisplayValues: Record<string, string>;
+  setSubItemDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
 export default function CashFlowPage() {
@@ -234,6 +247,11 @@ function CashFlowEditor({
   });
   const [additionalDisplayValues, setAdditionalDisplayValues] = useState<Record<string, string>>({});
 
+  // Sub-items state
+  const [subItems, setSubItems] = useState<Record<string, AdditionalItem[]>>({});
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [subItemDisplayValues, setSubItemDisplayValues] = useState<Record<string, string>>({});
+
   // Pre-populate form when editing
   useEffect(() => {
     if (cashFlow && mode === 'edit') {
@@ -282,6 +300,9 @@ function CashFlowEditor({
         if (cashFlow.additional_items.customLabels) {
           setCustomLabels(cashFlow.additional_items.customLabels);
         }
+        if (cashFlow.additional_items.subItems) {
+          setSubItems(cashFlow.additional_items.subItems);
+        }
       }
     }
   }, [cashFlow, mode]);
@@ -313,6 +334,11 @@ function CashFlowEditor({
       ...prev,
       [type]: prev[type].filter(item => item.id !== id),
     }));
+    // Also remove any sub-items for this additional item
+    setSubItems(prev => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
   };
 
   const updateAdditionalItemName = (type: 'incomes' | 'expenses', id: string, name: string) => {
@@ -331,23 +357,98 @@ function CashFlowEditor({
     }));
   };
 
+  // Sub-item handlers
+  const toggleRowExpand = (key: string) => {
+    setExpandedRows(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const addSubItem = (parentKey: string) => {
+    setSubItems(prev => ({
+      ...prev,
+      [parentKey]: [...(prev[parentKey] || []), { id: generateId(), name: '', amounts: {} }],
+    }));
+    setExpandedRows(prev => ({ ...prev, [parentKey]: true }));
+  };
+
+  const removeSubItem = (parentKey: string, subItemId: string) => {
+    setSubItems(prev => {
+      const updated = (prev[parentKey] || []).filter(item => item.id !== subItemId);
+      if (updated.length === 0) {
+        const { [parentKey]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [parentKey]: updated };
+    });
+  };
+
+  const updateSubItemName = (parentKey: string, subItemId: string, name: string) => {
+    setSubItems(prev => ({
+      ...prev,
+      [parentKey]: (prev[parentKey] || []).map(item =>
+        item.id === subItemId ? { ...item, name } : item
+      ),
+    }));
+  };
+
+  const updateSubItemAmount = (parentKey: string, subItemId: string, month: number, amount: number) => {
+    setSubItems(prev => ({
+      ...prev,
+      [parentKey]: (prev[parentKey] || []).map(item =>
+        item.id === subItemId ? { ...item, amounts: { ...item.amounts, [month]: amount } } : item
+      ),
+    }));
+  };
+
+  // Bundle sub-item props for row components
+  const subProps: SubItemsHandlers = {
+    subItems,
+    expandedRows,
+    toggleRowExpand,
+    addSubItem,
+    removeSubItem,
+    updateSubItemName,
+    updateSubItemAmount,
+    subItemDisplayValues,
+    setSubItemDisplayValues,
+  };
+
   const calculateMonthTotals = useCallback((month: number) => {
     const period = periods[month];
+
+    // Helper: get effective value for a key, using sub-item sum if sub-items exist
+    const getEffective = (key: string, fallback: number) => {
+      const items = subItems[key];
+      if (items && items.length > 0) {
+        return items.reduce((s, item) => s + (item.amounts[month] || 0), 0);
+      }
+      return fallback;
+    };
+
     const additionalIncome = additionalItems.incomes.reduce(
-      (sum, item) => sum + (item.amounts[month] || 0), 0
+      (sum, item) => sum + getEffective(item.id, item.amounts[month] || 0), 0
     );
     const additionalExpense = additionalItems.expenses.reduce(
-      (sum, item) => sum + (item.amounts[month] || 0), 0
+      (sum, item) => sum + getEffective(item.id, item.amounts[month] || 0), 0
     );
 
-    const totalInflows = period.salesCollections + period.otherIncome + additionalIncome;
+    const totalInflows =
+      getEffective('salesCollections', period.salesCollections) +
+      getEffective('otherIncome', period.otherIncome) +
+      additionalIncome;
+
     const totalOutflows =
-      period.supplierPayments + period.payroll + period.rent +
-      period.utilities + period.taxes + period.otherExpenses + additionalExpense;
+      getEffective('supplierPayments', period.supplierPayments) +
+      getEffective('payroll', period.payroll) +
+      getEffective('rent', period.rent) +
+      getEffective('utilities', period.utilities) +
+      getEffective('taxes', period.taxes) +
+      getEffective('otherExpenses', period.otherExpenses) +
+      additionalExpense;
+
     const netCashFlow = totalInflows - totalOutflows;
 
     return { totalInflows, totalOutflows, netCashFlow };
-  }, [periods, additionalItems]);
+  }, [periods, additionalItems, subItems]);
 
   const calculateYearTotals = useCallback(() => {
     let totalInflows = 0;
@@ -371,11 +472,61 @@ function CashFlowEditor({
       return;
     }
 
+    // Sync period values with sub-item sums before saving
+    const syncedPeriods = { ...periods };
+    const staticFields: (keyof CashFlowPeriodDTO)[] = [
+      'salesCollections', 'otherIncome', 'supplierPayments',
+      'payroll', 'rent', 'utilities', 'taxes', 'otherExpenses',
+    ];
+
+    for (let month = 1; month <= 12; month++) {
+      let needsUpdate = false;
+      const updated = { ...syncedPeriods[month] };
+      for (const field of staticFields) {
+        const items = subItems[field];
+        if (items && items.length > 0) {
+          (updated as any)[field] = items.reduce((s, item) => s + (item.amounts[month] || 0), 0);
+          needsUpdate = true;
+        }
+      }
+      if (needsUpdate) {
+        syncedPeriods[month] = updated;
+      }
+    }
+
+    // Sync additional items with sub-item sums
+    const syncedAdditionalItems: AdditionalItems = {
+      incomes: additionalItems.incomes.map(item => {
+        const items = subItems[item.id];
+        if (items && items.length > 0) {
+          const amounts: Record<number, number> = {};
+          for (let month = 1; month <= 12; month++) {
+            amounts[month] = items.reduce((s, si) => s + (si.amounts[month] || 0), 0);
+          }
+          return { ...item, amounts };
+        }
+        return item;
+      }),
+      expenses: additionalItems.expenses.map(item => {
+        const items = subItems[item.id];
+        if (items && items.length > 0) {
+          const amounts: Record<number, number> = {};
+          for (let month = 1; month <= 12; month++) {
+            amounts[month] = items.reduce((s, si) => s + (si.amounts[month] || 0), 0);
+          }
+          return { ...item, amounts };
+        }
+        return item;
+      }),
+      customLabels,
+      subItems,
+    };
+
     const dto = {
       name: cashFlowName,
       fiscalYear,
-      periods: Object.values(periods),
-      additionalItems: { ...additionalItems, customLabels },
+      periods: Object.values(syncedPeriods),
+      additionalItems: syncedAdditionalItems,
     };
 
     try {
@@ -469,7 +620,7 @@ function CashFlowEditor({
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="sticky left-0 bg-gray-100 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[200px]">
+                  <th className="sticky left-0 bg-gray-100 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[220px]">
                     Concepto
                   </th>
                   {MONTHS.map((month, idx) => (
@@ -502,6 +653,7 @@ function CashFlowEditor({
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.salesCollections, 0)}
                   displayValues={displayValues}
                   setDisplayValues={setDisplayValues}
+                  {...subProps}
                 />
                 <CashFlowRow
                   label={getLabel('otherIncome')}
@@ -512,6 +664,7 @@ function CashFlowEditor({
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.otherIncome, 0)}
                   displayValues={displayValues}
                   setDisplayValues={setDisplayValues}
+                  {...subProps}
                 />
 
                 {/* Additional Income Rows */}
@@ -525,6 +678,7 @@ function CashFlowEditor({
                     onRemove={() => removeAdditionalItem('incomes', item.id)}
                     displayValues={additionalDisplayValues}
                     setDisplayValues={setAdditionalDisplayValues}
+                    {...subProps}
                   />
                 ))}
 
@@ -570,27 +724,27 @@ function CashFlowEditor({
                 <CashFlowRow label={getLabel('supplierPayments')} field="supplierPayments" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('supplierPayments', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.supplierPayments, 0)}
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} />
+                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('payroll')} field="payroll" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('payroll', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.payroll, 0)}
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} />
+                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('rent')} field="rent" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('rent', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.rent, 0)}
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} />
+                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('utilities')} field="utilities" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('utilities', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.utilities, 0)}
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} />
+                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('taxes')} field="taxes" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('taxes', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.taxes, 0)}
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} />
+                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('otherExpenses')} field="otherExpenses" periods={periods} onChange={handleValueChange}
                   onLabelChange={(name) => updateLabel('otherExpenses', name)}
                   yearTotal={Object.values(periods).reduce((sum, p) => sum + p.otherExpenses, 0)}
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} />
+                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
 
                 {/* Additional Expense Rows */}
                 {additionalItems.expenses.map((item) => (
@@ -603,6 +757,7 @@ function CashFlowEditor({
                     onRemove={() => removeAdditionalItem('expenses', item.id)}
                     displayValues={additionalDisplayValues}
                     setDisplayValues={setAdditionalDisplayValues}
+                    {...subProps}
                   />
                 ))}
 
@@ -703,11 +858,13 @@ function CashFlowEditor({
 }
 
 // ==========================================
-// CashFlowRow Component (static rows)
+// CashFlowRow Component (static rows with sub-items)
 // ==========================================
 
 function CashFlowRow({
   label, field, periods, onChange, onLabelChange, yearTotal, displayValues, setDisplayValues,
+  subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
+  updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
 }: {
   label: string;
   field: keyof CashFlowPeriodDTO;
@@ -717,58 +874,122 @@ function CashFlowRow({
   yearTotal: number;
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-}) {
+} & SubItemsHandlers) {
+  const mySubItems = subItems[field] || [];
+  const isExpanded = expandedRows[field] || false;
+  const hasChildren = mySubItems.length > 0;
+
+  // Calculate effective year total (from sub-items if they exist)
+  const effectiveYearTotal = hasChildren
+    ? Array.from({ length: 12 }, (_, i) => i + 1).reduce(
+        (sum, month) => sum + mySubItems.reduce((s, item) => s + (item.amounts[month] || 0), 0), 0
+      )
+    : yearTotal;
+
   return (
-    <tr className="hover:bg-gray-50">
-      <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => onLabelChange?.(e.target.value)}
-          className="w-full px-2 py-1 text-sm font-medium text-gray-700 border-0 focus:ring-1 focus:ring-blue-500 rounded"
-        />
-      </td>
-      {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
-        const inputKey = `${month}-${field}`;
-        const currentValue = periods[month][field] || 0;
-        return (
-          <td key={month} className="border border-gray-300 px-1 py-1">
+    <>
+      <tr className="hover:bg-gray-50">
+        <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => toggleRowExpand(field)}
+              className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200"
+              title={isExpanded ? 'Colapsar' : 'Expandir'}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+              )}
+            </button>
             <input
               type="text"
-              value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
-              onChange={(e) => {
-                setDisplayValues(prev => ({ ...prev, [inputKey]: e.target.value }));
-                onChange(month, field, parseNumberInput(e.target.value));
-              }}
-              onBlur={(e) => {
-                const numericValue = parseNumberInput(e.target.value);
-                setDisplayValues(prev => ({
-                  ...prev,
-                  [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '',
-                }));
-              }}
-              className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
-              placeholder="0"
+              value={label}
+              onChange={(e) => onLabelChange?.(e.target.value)}
+              className={`w-full px-1 py-1 text-sm text-gray-700 border-0 focus:ring-1 focus:ring-blue-500 rounded ${hasChildren ? 'font-semibold' : 'font-medium'}`}
             />
-          </td>
-        );
-      })}
-      <td className="border border-gray-300 px-3 py-2 text-right bg-gray-100 font-semibold text-gray-900">
-        {formatCurrency(yearTotal)}
-      </td>
-    </tr>
+            {hasChildren && (
+              <span className="flex-shrink-0 text-[10px] bg-blue-100 text-blue-600 rounded-full px-1.5 py-0.5 font-medium">
+                {mySubItems.length}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => addSubItem(field)}
+              className="flex-shrink-0 p-0.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50"
+              title="Agregar sub-rubro"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </td>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
+          if (hasChildren) {
+            // Read-only: show sum of sub-items
+            const monthSum = mySubItems.reduce((s, item) => s + (item.amounts[month] || 0), 0);
+            return (
+              <td key={month} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40">
+                {monthSum > 0 ? formatCurrency(monthSum) : '$0'}
+              </td>
+            );
+          }
+          // Editable (no sub-items)
+          const inputKey = `${month}-${field}`;
+          const currentValue = periods[month][field] || 0;
+          return (
+            <td key={month} className="border border-gray-300 px-1 py-1">
+              <input
+                type="text"
+                value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
+                onChange={(e) => {
+                  setDisplayValues(prev => ({ ...prev, [inputKey]: e.target.value }));
+                  onChange(month, field, parseNumberInput(e.target.value));
+                }}
+                onBlur={(e) => {
+                  const numericValue = parseNumberInput(e.target.value);
+                  setDisplayValues(prev => ({
+                    ...prev,
+                    [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '',
+                  }));
+                }}
+                className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
+                placeholder="0"
+              />
+            </td>
+          );
+        })}
+        <td className="border border-gray-300 px-3 py-2 text-right bg-gray-100 font-semibold text-gray-900">
+          {formatCurrency(effectiveYearTotal)}
+        </td>
+      </tr>
+
+      {/* Sub-item rows */}
+      {isExpanded && mySubItems.map(subItem => (
+        <SubItemRow
+          key={subItem.id}
+          item={subItem}
+          parentKey={field}
+          onNameChange={(name) => updateSubItemName(field, subItem.id, name)}
+          onAmountChange={(month, amount) => updateSubItemAmount(field, subItem.id, month, amount)}
+          onRemove={() => removeSubItem(field, subItem.id)}
+          displayValues={subItemDisplayValues}
+          setDisplayValues={setSubItemDisplayValues}
+        />
+      ))}
+    </>
   );
 }
 
 // ==========================================
-// DynamicCashFlowRow Component (additional items)
+// SubItemRow Component (sub-rubro row)
 // ==========================================
 
-function DynamicCashFlowRow({
-  item, type, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
+function SubItemRow({
+  item, parentKey, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
 }: {
   item: AdditionalItem;
-  type: 'incomes' | 'expenses';
+  parentKey: string;
   onNameChange: (name: string) => void;
   onAmountChange: (month: number, amount: number) => void;
   onRemove: () => void;
@@ -778,34 +999,34 @@ function DynamicCashFlowRow({
   const yearTotal = Array.from({ length: 12 }, (_, i) => i + 1).reduce(
     (sum, month) => sum + (item.amounts[month] || 0), 0
   );
-  const color = type === 'incomes' ? 'green' : 'red';
 
   return (
-    <tr className="hover:bg-gray-50">
-      <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
-        <div className="flex items-center gap-1">
+    <tr className="hover:bg-blue-50/60 bg-blue-50/30">
+      <td className="sticky left-0 bg-blue-50/30 hover:bg-blue-50/60 border border-gray-300 px-1 py-1">
+        <div className="flex items-center gap-1 pl-5">
+          <span className="text-gray-300 text-xs mr-0.5">└</span>
           <button
             type="button"
             onClick={onRemove}
-            className={`flex-shrink-0 p-0.5 rounded text-${color}-400 hover:text-${color}-600 hover:bg-${color}-50`}
-            title="Eliminar"
+            className="flex-shrink-0 p-0.5 rounded text-red-300 hover:text-red-500 hover:bg-red-50"
+            title="Eliminar sub-rubro"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3 w-3" />
           </button>
           <input
             type="text"
             value={item.name}
             onChange={(e) => onNameChange(e.target.value)}
-            className={`w-full px-2 py-1 text-sm font-medium text-gray-700 border-0 focus:ring-1 focus:ring-${color}-500 rounded placeholder-gray-400`}
-            placeholder={type === 'incomes' ? 'Nombre del ingreso...' : 'Nombre del gasto...'}
+            className="w-full px-1 py-0.5 text-xs font-medium text-gray-600 bg-transparent border-0 focus:ring-1 focus:ring-blue-400 rounded placeholder-gray-400"
+            placeholder="Nombre del sub-rubro..."
           />
         </div>
       </td>
       {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
-        const inputKey = `${item.id}-${month}`;
+        const inputKey = `sub-${item.id}-${month}`;
         const currentValue = item.amounts[month] || 0;
         return (
-          <td key={month} className="border border-gray-300 px-1 py-1">
+          <td key={month} className="border border-gray-300 px-1 py-0.5 bg-blue-50/30">
             <input
               type="text"
               value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
@@ -820,16 +1041,150 @@ function DynamicCashFlowRow({
                   [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '',
                 }));
               }}
-              className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
+              className="w-full text-right px-1 py-0.5 text-xs text-gray-700 bg-transparent border-0 focus:ring-1 focus:ring-blue-400 rounded"
               placeholder="0"
             />
           </td>
         );
       })}
-      <td className="border border-gray-300 px-3 py-2 text-right bg-gray-100 font-semibold text-gray-900">
+      <td className="border border-gray-300 px-2 py-1 text-right bg-blue-50/50 font-medium text-xs text-gray-600">
         {formatCurrency(yearTotal)}
       </td>
     </tr>
+  );
+}
+
+// ==========================================
+// DynamicCashFlowRow Component (additional items with sub-items)
+// ==========================================
+
+function DynamicCashFlowRow({
+  item, type, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
+  subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
+  updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
+}: {
+  item: AdditionalItem;
+  type: 'incomes' | 'expenses';
+  onNameChange: (name: string) => void;
+  onAmountChange: (month: number, amount: number) => void;
+  onRemove: () => void;
+  displayValues: Record<string, string>;
+  setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+} & SubItemsHandlers) {
+  const mySubItems = subItems[item.id] || [];
+  const isExpanded = expandedRows[item.id] || false;
+  const hasChildren = mySubItems.length > 0;
+  const color = type === 'incomes' ? 'green' : 'red';
+
+  const effectiveYearTotal = hasChildren
+    ? Array.from({ length: 12 }, (_, i) => i + 1).reduce(
+        (sum, month) => sum + mySubItems.reduce((s, si) => s + (si.amounts[month] || 0), 0), 0
+      )
+    : Array.from({ length: 12 }, (_, i) => i + 1).reduce(
+        (sum, month) => sum + (item.amounts[month] || 0), 0
+      );
+
+  return (
+    <>
+      <tr className="hover:bg-gray-50">
+        <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => toggleRowExpand(item.id)}
+              className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200"
+              title={isExpanded ? 'Colapsar' : 'Expandir'}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              className={`flex-shrink-0 p-0.5 rounded text-${color}-400 hover:text-${color}-600 hover:bg-${color}-50`}
+              title="Eliminar"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <input
+              type="text"
+              value={item.name}
+              onChange={(e) => onNameChange(e.target.value)}
+              className={`w-full px-1 py-1 text-sm text-gray-700 border-0 focus:ring-1 focus:ring-${color}-500 rounded placeholder-gray-400 ${hasChildren ? 'font-semibold' : 'font-medium'}`}
+              placeholder={type === 'incomes' ? 'Nombre del ingreso...' : 'Nombre del gasto...'}
+            />
+            {hasChildren && (
+              <span className="flex-shrink-0 text-[10px] bg-blue-100 text-blue-600 rounded-full px-1.5 py-0.5 font-medium">
+                {mySubItems.length}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => addSubItem(item.id)}
+              className="flex-shrink-0 p-0.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50"
+              title="Agregar sub-rubro"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </td>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
+          if (hasChildren) {
+            // Read-only: show sum of sub-items
+            const monthSum = mySubItems.reduce((s, si) => s + (si.amounts[month] || 0), 0);
+            return (
+              <td key={month} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40">
+                {monthSum > 0 ? formatCurrency(monthSum) : '$0'}
+              </td>
+            );
+          }
+          // Editable (no sub-items)
+          const inputKey = `${item.id}-${month}`;
+          const currentValue = item.amounts[month] || 0;
+          return (
+            <td key={month} className="border border-gray-300 px-1 py-1">
+              <input
+                type="text"
+                value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
+                onChange={(e) => {
+                  setDisplayValues(prev => ({ ...prev, [inputKey]: e.target.value }));
+                  onAmountChange(month, parseNumberInput(e.target.value));
+                }}
+                onBlur={(e) => {
+                  const numericValue = parseNumberInput(e.target.value);
+                  setDisplayValues(prev => ({
+                    ...prev,
+                    [inputKey]: numericValue > 0 ? formatNumberInput(numericValue) : '',
+                  }));
+                }}
+                className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
+                placeholder="0"
+              />
+            </td>
+          );
+        })}
+        <td className="border border-gray-300 px-3 py-2 text-right bg-gray-100 font-semibold text-gray-900">
+          {formatCurrency(effectiveYearTotal)}
+        </td>
+      </tr>
+
+      {/* Sub-item rows */}
+      {isExpanded && mySubItems.map(subItem => (
+        <SubItemRow
+          key={subItem.id}
+          item={subItem}
+          parentKey={item.id}
+          onNameChange={(name) => updateSubItemName(item.id, subItem.id, name)}
+          onAmountChange={(month, amount) => updateSubItemAmount(item.id, subItem.id, month, amount)}
+          onRemove={() => removeSubItem(item.id, subItem.id)}
+          displayValues={subItemDisplayValues}
+          setDisplayValues={setSubItemDisplayValues}
+        />
+      ))}
+    </>
   );
 }
 

@@ -12,6 +12,7 @@ export interface AdditionalItems {
   incomes: AdditionalItem[];
   expenses: AdditionalItem[];
   customLabels?: Record<string, string>;
+  subItems?: Record<string, AdditionalItem[]>;
 }
 
 export interface CashFlowPeriodDTO {

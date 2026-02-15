@@ -595,12 +595,12 @@ function CashFlowEditor({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto pb-4">
             <table className="w-full border-collapse text-sm">
               <thead>
                 {/* Month/Year selector row */}
                 <tr className="bg-gray-100">
-                  <th className="sticky left-0 bg-gray-100 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[220px]">
+                  <th className="sticky left-0 z-20 bg-gray-100 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[220px]">
                     Concepto
                   </th>
                   {periods.map((period, idx) => (
@@ -679,7 +679,7 @@ function CashFlowEditor({
 
                 {/* Total Entradas */}
                 <tr className="bg-green-100 font-semibold">
-                  <td className="sticky left-0 bg-green-100 border border-gray-300 px-3 py-2 text-green-800">
+                  <td className="sticky left-0 z-10 bg-green-100 border border-gray-300 px-3 py-2 text-green-800">
                     Total Entradas
                   </td>
                   {periods.map((_, idx) => (
@@ -745,7 +745,7 @@ function CashFlowEditor({
 
                 {/* Total Salidas */}
                 <tr className="bg-red-100 font-semibold">
-                  <td className="sticky left-0 bg-red-100 border border-gray-300 px-3 py-2 text-red-800">
+                  <td className="sticky left-0 z-10 bg-red-100 border border-gray-300 px-3 py-2 text-red-800">
                     Total Salidas
                   </td>
                   {periods.map((_, idx) => (
@@ -759,8 +759,8 @@ function CashFlowEditor({
                 </tr>
 
                 {/* FLUJO NETO */}
-                <tr className="bg-blue-100 font-bold text-lg">
-                  <td className={`sticky left-0 bg-blue-100 border border-gray-300 px-3 py-2 ${grandTotals.netCashFlow < 0 ? 'text-red-800' : 'text-green-800'}`}>
+                <tr className="bg-blue-100 font-bold">
+                  <td className={`sticky left-0 z-10 bg-blue-100 border border-gray-300 px-3 py-2 ${grandTotals.netCashFlow < 0 ? 'text-red-800' : 'text-green-800'}`}>
                     FLUJO NETO
                   </td>
                   {periods.map((_, idx) => {
@@ -775,7 +775,38 @@ function CashFlowEditor({
                     {formatCurrency(grandTotals.netCashFlow)}
                   </td>
                 </tr>
+
               </tbody>
+              <tfoot>
+                {/* SALDO ACUMULADO */}
+                <tr className="bg-yellow-100 font-bold">
+                  <td className="sticky left-0 z-10 bg-yellow-100 border border-gray-300 px-3 py-2 text-yellow-800">
+                    SALDO ACUMULADO
+                  </td>
+                  {periods.map((_, idx) => {
+                    let accumulated = 0;
+                    for (let i = 0; i <= idx; i++) {
+                      accumulated += calculateColumnTotals(i).netCashFlow;
+                    }
+                    return (
+                      <td key={idx} className={`border border-gray-300 px-2 py-2 text-right font-bold ${accumulated < 0 ? 'text-red-800' : 'text-green-800'}`}>
+                        {formatCurrency(accumulated)}
+                      </td>
+                    );
+                  })}
+                  {(() => {
+                    let finalAccumulated = 0;
+                    for (let i = 0; i < periods.length; i++) {
+                      finalAccumulated += calculateColumnTotals(i).netCashFlow;
+                    }
+                    return (
+                      <td className={`border border-gray-300 px-3 py-2 text-right bg-yellow-200 font-bold ${finalAccumulated < 0 ? 'text-red-800' : 'text-green-800'}`}>
+                        {formatCurrency(finalAccumulated)}
+                      </td>
+                    );
+                  })()}
+                </tr>
+              </tfoot>
             </table>
           </div>
 
@@ -849,7 +880,7 @@ function CashFlowRow({
   return (
     <>
       <tr className="hover:bg-gray-50">
-        <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
+        <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
           <div className="flex items-center gap-0.5">
             <button type="button" onClick={() => toggleRowExpand(field)}
               className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200" title={isExpanded ? 'Colapsar' : 'Expandir'}>
@@ -932,7 +963,7 @@ function SubItemRow({
 
   return (
     <tr className="hover:bg-blue-50/60 bg-blue-50/30">
-      <td className="sticky left-0 bg-blue-50/30 hover:bg-blue-50/60 border border-gray-300 px-1 py-1">
+      <td className="sticky left-0 z-10 bg-blue-50/30 hover:bg-blue-50/60 border border-gray-300 px-1 py-1">
         <div className="flex items-center gap-1 pl-5">
           <span className="text-gray-300 text-xs mr-0.5">└</span>
           <button type="button" onClick={onRemove}
@@ -1005,7 +1036,7 @@ function DynamicCashFlowRow({
   return (
     <>
       <tr className="hover:bg-gray-50">
-        <td className="sticky left-0 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
+        <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
           <div className="flex items-center gap-0.5">
             <button type="button" onClick={() => toggleRowExpand(item.id)}
               className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200" title={isExpanded ? 'Colapsar' : 'Expandir'}>

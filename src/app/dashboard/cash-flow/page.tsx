@@ -600,7 +600,7 @@ function CashFlowEditor({
               <thead>
                 {/* Month/Year selector row */}
                 <tr className="bg-gray-100">
-                  <th className="sticky left-0 z-20 bg-gray-100 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[220px]">
+                  <th className="sticky left-0 z-20 bg-gray-200 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[220px]">
                     Concepto
                   </th>
                   {periods.map((period, idx) => (
@@ -880,7 +880,7 @@ function CashFlowRow({
   return (
     <>
       <tr className="hover:bg-gray-50">
-        <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
+        <td className="sticky left-0 z-10 bg-gray-50 hover:bg-gray-100 border border-gray-300 px-1 py-1">
           <div className="flex items-center gap-0.5">
             <button type="button" onClick={() => toggleRowExpand(field)}
               className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200" title={isExpanded ? 'Colapsar' : 'Expandir'}>
@@ -963,7 +963,7 @@ function SubItemRow({
 
   return (
     <tr className="hover:bg-blue-50/60 bg-blue-50/30">
-      <td className="sticky left-0 z-10 bg-blue-50/30 hover:bg-blue-50/60 border border-gray-300 px-1 py-1">
+      <td className="sticky left-0 z-10 bg-gray-100 hover:bg-gray-200 border border-gray-300 px-1 py-1">
         <div className="flex items-center gap-1 pl-5">
           <span className="text-gray-300 text-xs mr-0.5">└</span>
           <button type="button" onClick={onRemove}
@@ -1036,7 +1036,7 @@ function DynamicCashFlowRow({
   return (
     <>
       <tr className="hover:bg-gray-50">
-        <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 border border-gray-300 px-1 py-1">
+        <td className="sticky left-0 z-10 bg-gray-50 hover:bg-gray-100 border border-gray-300 px-1 py-1">
           <div className="flex items-center gap-0.5">
             <button type="button" onClick={() => toggleRowExpand(item.id)}
               className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200" title={isExpanded ? 'Colapsar' : 'Expandir'}>

@@ -170,7 +170,7 @@ export default function ProjectEvaluationPage() {
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Ej: Apertura nueva sucursal"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -183,7 +183,7 @@ export default function ProjectEvaluationPage() {
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="Ej: Proyecto de expansión 2025"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -200,7 +200,7 @@ export default function ProjectEvaluationPage() {
                       periodType: e.target.value as 'months' | 'years',
                       numPeriods: e.target.value === 'months' ? 12 : 5,
                     }))}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="months">Meses</option>
                     <option value="years">Años</option>
@@ -215,7 +215,7 @@ export default function ProjectEvaluationPage() {
                     <select
                       value={formData.startMonth}
                       onChange={(e) => setFormData(prev => ({ ...prev, startMonth: parseInt(e.target.value) }))}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
                       {MONTH_NAMES.map((name, i) => (
                         <option key={i} value={i + 1}>{name}</option>
@@ -234,7 +234,7 @@ export default function ProjectEvaluationPage() {
                     max="2100"
                     value={formData.startYear}
                     onChange={(e) => setFormData(prev => ({ ...prev, startYear: parseInt(e.target.value) }))}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -249,7 +249,7 @@ export default function ProjectEvaluationPage() {
                     max="120"
                     value={formData.numPeriods}
                     onChange={(e) => setFormData(prev => ({ ...prev, numPeriods: parseInt(e.target.value) || 1 }))}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     required
                   />
                 </div>

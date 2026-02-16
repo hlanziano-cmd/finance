@@ -318,7 +318,7 @@ export default function ProjectBudgetPage() {
                   value={loanForm.name}
                   onChange={(e) => setLoanForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Ej: Crédito bancario"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -330,7 +330,7 @@ export default function ProjectBudgetPage() {
                   value={loanForm.principal}
                   onChange={(e) => setLoanForm(prev => ({ ...prev, principal: e.target.value }))}
                   placeholder="10,000,000"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -342,7 +342,7 @@ export default function ProjectBudgetPage() {
                   value={loanForm.annualRate}
                   onChange={(e) => setLoanForm(prev => ({ ...prev, annualRate: e.target.value }))}
                   placeholder="12"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -353,7 +353,7 @@ export default function ProjectBudgetPage() {
                   value={loanForm.numInstallments}
                   onChange={(e) => setLoanForm(prev => ({ ...prev, numInstallments: e.target.value }))}
                   placeholder="24"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -361,7 +361,7 @@ export default function ProjectBudgetPage() {
                 <select
                   value={loanForm.startPeriod}
                   onChange={(e) => setLoanForm(prev => ({ ...prev, startPeriod: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {Array.from({ length: numPeriods }, (_, i) => (
                     <option key={i} value={i}>{getPeriodLabel(i)}</option>
@@ -752,7 +752,7 @@ function BudgetRow({
             type="text"
             value={item.amounts[i] ? formatNumberInput(item.amounts[i]) : ''}
             onChange={(e) => onChange(i, parseNumberInput(e.target.value))}
-            className="w-full text-right rounded border border-gray-200 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="w-full text-right rounded border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             placeholder="0"
           />
         </td>

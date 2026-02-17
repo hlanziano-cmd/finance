@@ -35,6 +35,7 @@ export function AddItemModal({ isOpen, onClose, onAdd, periods, defaultType = 'i
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly');
   const [startCol, setStartCol] = useState(1);
   const [endCol, setEndCol] = useState(periods.length);
+  const [paymentDay, setPaymentDay] = useState<number | ''>('');
 
   const resetForm = () => {
     setType(defaultType);
@@ -43,6 +44,7 @@ export function AddItemModal({ isOpen, onClose, onAdd, periods, defaultType = 'i
     setFrequency('monthly');
     setStartCol(1);
     setEndCol(periods.length);
+    setPaymentDay('');
   };
 
   const handleClose = () => {
@@ -78,6 +80,7 @@ export function AddItemModal({ isOpen, onClose, onAdd, periods, defaultType = 'i
         amount,
         startCol,
         endCol: frequency === 'single' ? startCol : endCol,
+        ...(paymentDay !== '' && frequency !== 'single' ? { paymentDay: paymentDay as number } : {}),
       },
     };
 
@@ -173,6 +176,28 @@ export function AddItemModal({ isOpen, onClose, onAdd, periods, defaultType = 'i
               ))}
             </select>
           </div>
+
+          {/* Payment day (only for recurring) */}
+          {frequency !== 'single' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Día estimado de pago
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="31"
+                value={paymentDay}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : Math.min(31, Math.max(1, parseInt(e.target.value) || 1));
+                  setPaymentDay(val);
+                }}
+                placeholder="Ej: 15"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-400">Se generará una alerta cerca de esta fecha</p>
+            </div>
+          )}
 
           {/* Period range */}
           <div className="grid grid-cols-2 gap-4">

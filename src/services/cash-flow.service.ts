@@ -9,6 +9,7 @@ export interface RecurrenceConfig {
   amount: number;
   startCol: number;   // 1-based column where recurrence starts
   endCol?: number;     // 1-based column where recurrence ends (inclusive). Undefined = until the end
+  paymentDay?: number; // Day of month (1-31) when payment is due
 }
 
 export interface AdditionalItem {

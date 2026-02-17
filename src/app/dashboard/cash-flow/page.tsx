@@ -13,6 +13,7 @@ import { Button } from '@/src/components/ui/Button';
 import { MonthYearPicker } from '@/src/components/ui/MonthYearPicker';
 import { AddItemModal } from '@/src/components/cash-flow/AddItemModal';
 import { CommentModal } from '@/src/components/cash-flow/CommentModal';
+import { PaymentAlerts } from '@/src/components/cash-flow/PaymentAlerts';
 import {
   useCashFlows, useCashFlow, useCreateCashFlow,
   useUpdateCashFlow, useDeleteCashFlow,
@@ -661,8 +662,8 @@ function CashFlowEditor({
       {/* General Info */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-            <div className="lg:col-span-2">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                 Nombre del Proyecto <span className="text-red-500">*</span>
               </label>
@@ -676,7 +677,7 @@ function CashFlowEditor({
                 placeholder="Ej: Proyecto Principal 2025"
               />
             </div>
-            <div>
+            <div className="flex items-end gap-2">
               <MonthYearPicker
                 label="Desde"
                 value={mode === 'create' ? startDate : { month: periods[0]?.month || 1, year: periods[0]?.year || currentYear }}
@@ -684,14 +685,12 @@ function CashFlowEditor({
                   if (mode === 'create') {
                     setStartDate({ month, year });
                   } else {
-                    // In edit mode, update the first period
                     updateColumnMonth(0, month);
                     updateColumnYear(0, year);
                   }
                 }}
               />
-            </div>
-            <div>
+              <span className="text-gray-400 text-sm pb-2">—</span>
               <MonthYearPicker
                 label="Hasta"
                 value={mode === 'create' ? endDate : { month: periods[periods.length - 1]?.month || 12, year: periods[periods.length - 1]?.year || currentYear }}
@@ -699,7 +698,6 @@ function CashFlowEditor({
                   if (mode === 'create') {
                     setEndDate({ month, year });
                   } else {
-                    // In edit mode, update the last period
                     const lastIdx = periods.length - 1;
                     updateColumnMonth(lastIdx, month);
                     updateColumnYear(lastIdx, year);
@@ -710,6 +708,12 @@ function CashFlowEditor({
           </div>
         </CardContent>
       </Card>
+
+      {/* Payment Alerts */}
+      <PaymentAlerts
+        items={[...additionalItems.incomes, ...additionalItems.expenses]}
+        periods={periods.map(p => ({ month: p.month, year: p.year }))}
+      />
 
       {/* Cash Flow Table */}
       <Card>
@@ -734,16 +738,16 @@ function CashFlowEditor({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto pb-4">
+          <div className="overflow-auto max-h-[65vh] border border-gray-200 rounded-lg scrollbar-thin">
             <table className="w-full border-collapse text-sm">
-              <thead>
+              <thead className="sticky top-0 z-30">
                 {/* Month/Year selector row */}
                 <tr className="bg-gray-100">
-                  <th className="sticky left-0 z-20 bg-gray-200 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[220px]">
+                  <th className="sticky left-0 z-40 bg-gray-200 border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900 min-w-[220px]">
                     Concepto
                   </th>
                   {periods.map((period, idx) => (
-                    <th key={idx} className="border border-gray-300 px-1 py-1 text-center min-w-[110px]">
+                    <th key={idx} className="border border-gray-300 px-1 py-1 text-center min-w-[110px] bg-gray-100">
                       <MonthYearPicker
                         compact
                         value={{ month: period.month, year: period.year }}

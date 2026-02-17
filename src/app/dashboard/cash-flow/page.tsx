@@ -6,9 +6,13 @@ import { useRouter } from 'next/navigation';
 import {
   Plus, Minus, TrendingUp, TrendingDown, Trash2,
   Download, AlertCircle, Info, X, Save, ChevronDown, ChevronRight,
+  MessageSquare,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
+import { MonthYearPicker } from '@/src/components/ui/MonthYearPicker';
+import { AddItemModal } from '@/src/components/cash-flow/AddItemModal';
+import { CommentModal } from '@/src/components/cash-flow/CommentModal';
 import {
   useCashFlows, useCashFlow, useCreateCashFlow,
   useUpdateCashFlow, useDeleteCashFlow,
@@ -21,6 +25,33 @@ const MONTH_NAMES = [
   'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
   'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
 ];
+
+function getPeriodLabel(period: { month: number; year: number }) {
+  return `${MONTH_NAMES[period.month - 1]} ${period.year}`;
+}
+
+function CommentIndicator({
+  hasComment,
+  onClick,
+}: {
+  hasComment: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className={`absolute top-0 right-0 p-0.5 rounded-bl transition-opacity ${
+        hasComment
+          ? 'text-blue-500 opacity-100'
+          : 'text-gray-300 opacity-0 group-hover:opacity-100'
+      }`}
+      title={hasComment ? 'Ver comentario' : 'Agregar comentario'}
+    >
+      <MessageSquare className="h-3 w-3" />
+    </button>
+  );
+}
 
 function generateId() {
   return Math.random().toString(36).substring(2, 15);
@@ -46,6 +77,8 @@ interface SubItemsHandlers {
   updateSubItemAmount: (parentKey: string, subItemId: string, month: number, amount: number) => void;
   subItemDisplayValues: Record<string, string>;
   setSubItemDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  comments: Record<string, Record<number, string>>;
+  openCommentModal: (itemKey: string, colKey: number, label: string, periodLabel: string) => void;
 }
 
 export default function CashFlowPage() {
@@ -206,9 +239,77 @@ function CashFlowEditor({
 
   // Dynamic periods array (each element is a column)
   const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
   const [periods, setPeriods] = useState<CashFlowPeriodDTO[]>(
     Array.from({ length: 12 }, (_, i) => createEmptyPeriod(i + 1, currentYear))
   );
+
+  // Creation date pickers (only used in create mode)
+  const [startDate, setStartDate] = useState({ month: currentMonth, year: currentYear });
+  const [endDate, setEndDate] = useState({ month: 12, year: currentYear });
+
+  // Comments state: { itemKey: { colKey: "comment text" } }
+  const [comments, setComments] = useState<Record<string, Record<number, string>>>({});
+  const [commentModal, setCommentModal] = useState<{
+    isOpen: boolean;
+    itemKey: string;
+    colKey: number;
+    label: string;
+    periodLabel: string;
+  }>({ isOpen: false, itemKey: '', colKey: 0, label: '', periodLabel: '' });
+
+  // Add item modal
+  const [addItemModal, setAddItemModal] = useState<{
+    isOpen: boolean;
+    defaultType: 'incomes' | 'expenses';
+  }>({ isOpen: false, defaultType: 'incomes' });
+
+  const openCommentModal = (itemKey: string, colKey: number, label: string, periodLabel: string) => {
+    setCommentModal({ isOpen: true, itemKey, colKey, label, periodLabel });
+  };
+
+  const handleSaveComment = (text: string) => {
+    setComments(prev => {
+      const itemComments = { ...(prev[commentModal.itemKey] || {}) };
+      if (text) {
+        itemComments[commentModal.colKey] = text;
+      } else {
+        delete itemComments[commentModal.colKey];
+      }
+      if (Object.keys(itemComments).length === 0) {
+        const { [commentModal.itemKey]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [commentModal.itemKey]: itemComments };
+    });
+  };
+
+  const handleAddItem = (type: 'incomes' | 'expenses', item: AdditionalItem) => {
+    setAdditionalItems(prev => ({
+      ...prev,
+      [type]: [...prev[type], item],
+    }));
+  };
+
+  // Generate periods from date range (for create mode)
+  const generatePeriodsFromRange = (start: { month: number; year: number }, end: { month: number; year: number }) => {
+    const result: CashFlowPeriodDTO[] = [];
+    let m = start.month;
+    let y = start.year;
+    while (y < end.year || (y === end.year && m <= end.month)) {
+      result.push(createEmptyPeriod(m, y));
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+    return result.length > 0 ? result : [createEmptyPeriod(start.month, start.year)];
+  };
+
+  // Update periods when date pickers change (create mode only)
+  useEffect(() => {
+    if (mode === 'create') {
+      setPeriods(generatePeriodsFromRange(startDate, endDate));
+    }
+  }, [startDate, endDate, mode]);
 
   const DEFAULT_LABELS: Record<string, string> = {
     salesCollections: 'Cobros de Ventas',
@@ -270,6 +371,9 @@ function CashFlowEditor({
         }
         if (cashFlow.additional_items.subItems) {
           setSubItems(cashFlow.additional_items.subItems);
+        }
+        if (cashFlow.additional_items.comments) {
+          setComments(cashFlow.additional_items.comments);
         }
       }
     }
@@ -404,6 +508,7 @@ function CashFlowEditor({
     subItems, expandedRows, toggleRowExpand, addSubItem,
     removeSubItem, updateSubItemName, updateSubItemAmount,
     subItemDisplayValues, setSubItemDisplayValues,
+    comments, openCommentModal,
   };
 
   // Calculate totals for a column (by index)
@@ -510,6 +615,7 @@ function CashFlowEditor({
       }),
       customLabels,
       subItems,
+      comments,
     };
 
     const dto = {
@@ -555,19 +661,52 @@ function CashFlowEditor({
       {/* General Info */}
       <Card>
         <CardContent className="pt-6">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Nombre del Proyecto <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="name"
-              type="text"
-              required
-              value={cashFlowName}
-              onChange={(e) => setCashFlowName(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-400 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ej: Proyecto Principal 2025"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="lg:col-span-2">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Nombre del Proyecto <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="name"
+                type="text"
+                required
+                value={cashFlowName}
+                onChange={(e) => setCashFlowName(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-400 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ej: Proyecto Principal 2025"
+              />
+            </div>
+            <div>
+              <MonthYearPicker
+                label="Desde"
+                value={mode === 'create' ? startDate : { month: periods[0]?.month || 1, year: periods[0]?.year || currentYear }}
+                onChange={(month, year) => {
+                  if (mode === 'create') {
+                    setStartDate({ month, year });
+                  } else {
+                    // In edit mode, update the first period
+                    updateColumnMonth(0, month);
+                    updateColumnYear(0, year);
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <MonthYearPicker
+                label="Hasta"
+                value={mode === 'create' ? endDate : { month: periods[periods.length - 1]?.month || 12, year: periods[periods.length - 1]?.year || currentYear }}
+                onChange={(month, year) => {
+                  if (mode === 'create') {
+                    setEndDate({ month, year });
+                  } else {
+                    // In edit mode, update the last period
+                    const lastIdx = periods.length - 1;
+                    updateColumnMonth(lastIdx, month);
+                    updateColumnYear(lastIdx, year);
+                  }
+                }}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -605,23 +744,14 @@ function CashFlowEditor({
                   </th>
                   {periods.map((period, idx) => (
                     <th key={idx} className="border border-gray-300 px-1 py-1 text-center min-w-[110px]">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <select
-                          value={period.month}
-                          onChange={(e) => updateColumnMonth(idx, parseInt(e.target.value))}
-                          className="w-full text-xs font-semibold text-gray-800 bg-transparent border-0 focus:ring-1 focus:ring-blue-500 rounded text-center cursor-pointer"
-                        >
-                          {MONTH_NAMES.map((name, mIdx) => (
-                            <option key={mIdx} value={mIdx + 1}>{name}</option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          value={period.year}
-                          onChange={(e) => updateColumnYear(idx, parseInt(e.target.value) || currentYear)}
-                          className="w-16 text-[10px] text-gray-500 text-center bg-transparent border-0 focus:ring-1 focus:ring-blue-500 rounded [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                      </div>
+                      <MonthYearPicker
+                        compact
+                        value={{ month: period.month, year: period.year }}
+                        onChange={(month, year) => {
+                          updateColumnMonth(idx, month);
+                          updateColumnYear(idx, year);
+                        }}
+                      />
                     </th>
                   ))}
                   <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-gray-900 bg-gray-200 min-w-[120px]">
@@ -669,11 +799,19 @@ function CashFlowEditor({
 
                 <tr>
                   <td colSpan={colCount + 2} className="border border-gray-300 px-3 py-1">
-                    <button type="button" onClick={addAdditionalIncome}
-                      className="flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-800 transition-colors py-1">
-                      <Plus className="h-3.5 w-3.5" />
-                      Agregar Ingreso
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={addAdditionalIncome}
+                        className="flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-800 transition-colors py-1">
+                        <Plus className="h-3.5 w-3.5" />
+                        Ingreso Rápido
+                      </button>
+                      <button type="button"
+                        onClick={() => setAddItemModal({ isOpen: true, defaultType: 'incomes' })}
+                        className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors py-1">
+                        <Plus className="h-3.5 w-3.5" />
+                        Ingreso Recurrente
+                      </button>
+                    </div>
                   </td>
                 </tr>
 
@@ -735,11 +873,19 @@ function CashFlowEditor({
 
                 <tr>
                   <td colSpan={colCount + 2} className="border border-gray-300 px-3 py-1">
-                    <button type="button" onClick={addAdditionalExpense}
-                      className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 transition-colors py-1">
-                      <Plus className="h-3.5 w-3.5" />
-                      Agregar Gasto
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={addAdditionalExpense}
+                        className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 transition-colors py-1">
+                        <Plus className="h-3.5 w-3.5" />
+                        Gasto Rápido
+                      </button>
+                      <button type="button"
+                        onClick={() => setAddItemModal({ isOpen: true, defaultType: 'expenses' })}
+                        className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors py-1">
+                        <Plus className="h-3.5 w-3.5" />
+                        Gasto Recurrente
+                      </button>
+                    </div>
                   </td>
                 </tr>
 
@@ -844,6 +990,24 @@ function CashFlowEditor({
           {isSaving ? 'Guardando...' : mode === 'create' ? 'Crear Flujo de Caja' : 'Guardar Cambios'}
         </Button>
       </div>
+
+      {/* Modals */}
+      <AddItemModal
+        isOpen={addItemModal.isOpen}
+        onClose={() => setAddItemModal(prev => ({ ...prev, isOpen: false }))}
+        onAdd={handleAddItem}
+        periods={periods.map(p => ({ month: p.month, year: p.year }))}
+        defaultType={addItemModal.defaultType}
+      />
+
+      <CommentModal
+        isOpen={commentModal.isOpen}
+        onClose={() => setCommentModal(prev => ({ ...prev, isOpen: false }))}
+        comment={comments[commentModal.itemKey]?.[commentModal.colKey] || ''}
+        onSave={handleSaveComment}
+        cellLabel={commentModal.label}
+        periodLabel={commentModal.periodLabel}
+      />
     </form>
   );
 }
@@ -856,6 +1020,7 @@ function CashFlowRow({
   label, field, periods, onChange, onLabelChange, displayValues, setDisplayValues,
   subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
   updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
+  comments, openCommentModal,
 }: {
   label: string;
   field: keyof CashFlowPeriodDTO;
@@ -901,18 +1066,20 @@ function CashFlowRow({
         </td>
         {periods.map((period, idx) => {
           const colKey = idx + 1;
+          const hasComment = !!(comments[field]?.[colKey]);
           if (hasChildren) {
             const monthSum = mySubItems.reduce((s, item) => s + (item.amounts[colKey] || 0), 0);
             return (
-              <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40">
+              <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40 relative group">
                 {monthSum > 0 ? formatCurrency(monthSum) : '$0'}
+                <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(field, colKey, label, getPeriodLabel(period))} />
               </td>
             );
           }
           const inputKey = `${idx}-${field}`;
           const currentValue = (period[field] as number) || 0;
           return (
-            <td key={idx} className="border border-gray-300 px-1 py-1">
+            <td key={idx} className="border border-gray-300 px-1 py-1 relative group">
               <input type="text"
                 value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
                 onChange={(e) => {
@@ -925,6 +1092,7 @@ function CashFlowRow({
                 }}
                 className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
                 placeholder="0" />
+              <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(field, colKey, label, getPeriodLabel(period))} />
             </td>
           );
         })}
@@ -937,7 +1105,8 @@ function CashFlowRow({
           onNameChange={(name) => updateSubItemName(field, subItem.id, name)}
           onAmountChange={(colKey, amount) => updateSubItemAmount(field, subItem.id, colKey, amount)}
           onRemove={() => removeSubItem(field, subItem.id)}
-          displayValues={subItemDisplayValues} setDisplayValues={setSubItemDisplayValues} />
+          displayValues={subItemDisplayValues} setDisplayValues={setSubItemDisplayValues}
+          comments={comments} openCommentModal={openCommentModal} />
       ))}
     </>
   );
@@ -949,6 +1118,7 @@ function CashFlowRow({
 
 function SubItemRow({
   item, parentKey, periods, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
+  comments, openCommentModal,
 }: {
   item: AdditionalItem;
   parentKey: string;
@@ -958,6 +1128,8 @@ function SubItemRow({
   onRemove: () => void;
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  comments: Record<string, Record<number, string>>;
+  openCommentModal: (itemKey: string, colKey: number, label: string, periodLabel: string) => void;
 }) {
   const yearTotal = periods.reduce((sum, _, idx) => sum + (item.amounts[idx + 1] || 0), 0);
 
@@ -975,12 +1147,13 @@ function SubItemRow({
             placeholder="Nombre del sub-rubro..." />
         </div>
       </td>
-      {periods.map((_, idx) => {
+      {periods.map((period, idx) => {
         const colKey = idx + 1;
         const inputKey = `sub-${item.id}-${colKey}`;
         const currentValue = item.amounts[colKey] || 0;
+        const hasComment = !!(comments[item.id]?.[colKey]);
         return (
-          <td key={idx} className="border border-gray-300 px-1 py-0.5 bg-blue-50/30">
+          <td key={idx} className="border border-gray-300 px-1 py-0.5 bg-blue-50/30 relative group">
             <input type="text"
               value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
               onChange={(e) => {
@@ -993,6 +1166,7 @@ function SubItemRow({
               }}
               className="w-full text-right px-1 py-0.5 text-xs text-gray-700 bg-transparent border-0 focus:ring-1 focus:ring-blue-400 rounded"
               placeholder="0" />
+            <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(item.id, colKey, item.name || 'Sub-rubro', getPeriodLabel(period))} />
           </td>
         );
       })}
@@ -1011,6 +1185,7 @@ function DynamicCashFlowRow({
   item, type, periods, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
   subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
   updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
+  comments, openCommentModal,
 }: {
   item: AdditionalItem;
   type: 'incomes' | 'expenses';
@@ -1060,20 +1235,22 @@ function DynamicCashFlowRow({
             </button>
           </div>
         </td>
-        {periods.map((_, idx) => {
+        {periods.map((period, idx) => {
           const colKey = idx + 1;
+          const hasComment = !!(comments[item.id]?.[colKey]);
           if (hasChildren) {
             const monthSum = mySubItems.reduce((s, si) => s + (si.amounts[colKey] || 0), 0);
             return (
-              <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40">
+              <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40 relative group">
                 {monthSum > 0 ? formatCurrency(monthSum) : '$0'}
+                <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(item.id, colKey, item.name || 'Rubro', getPeriodLabel(period))} />
               </td>
             );
           }
           const inputKey = `${item.id}-${colKey}`;
           const currentValue = item.amounts[colKey] || 0;
           return (
-            <td key={idx} className="border border-gray-300 px-1 py-1">
+            <td key={idx} className="border border-gray-300 px-1 py-1 relative group">
               <input type="text"
                 value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
                 onChange={(e) => {
@@ -1086,6 +1263,7 @@ function DynamicCashFlowRow({
                 }}
                 className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
                 placeholder="0" />
+              <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(item.id, colKey, item.name || 'Rubro', getPeriodLabel(period))} />
             </td>
           );
         })}
@@ -1098,7 +1276,8 @@ function DynamicCashFlowRow({
           onNameChange={(name) => updateSubItemName(item.id, subItem.id, name)}
           onAmountChange={(colKey, amount) => updateSubItemAmount(item.id, subItem.id, colKey, amount)}
           onRemove={() => removeSubItem(item.id, subItem.id)}
-          displayValues={subItemDisplayValues} setDisplayValues={setSubItemDisplayValues} />
+          displayValues={subItemDisplayValues} setDisplayValues={setSubItemDisplayValues}
+          comments={comments} openCommentModal={openCommentModal} />
       ))}
     </>
   );

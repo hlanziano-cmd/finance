@@ -2,10 +2,20 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
+export type RecurrenceFrequency = 'single' | 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
+
+export interface RecurrenceConfig {
+  frequency: RecurrenceFrequency;
+  amount: number;
+  startCol: number;   // 1-based column where recurrence starts
+  endCol?: number;     // 1-based column where recurrence ends (inclusive). Undefined = until the end
+}
+
 export interface AdditionalItem {
   id: string;
   name: string;
   amounts: Record<number, number>; // column index (1-based) -> amount
+  recurrence?: RecurrenceConfig;
 }
 
 export interface AdditionalItems {
@@ -13,6 +23,7 @@ export interface AdditionalItems {
   expenses: AdditionalItem[];
   customLabels?: Record<string, string>;
   subItems?: Record<string, AdditionalItem[]>;
+  comments?: Record<string, Record<number, string>>; // itemKey -> { colKey -> comment text }
 }
 
 export interface CashFlowPeriodDTO {

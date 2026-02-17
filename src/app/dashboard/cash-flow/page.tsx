@@ -20,6 +20,9 @@ import {
 } from '@/src/lib/hooks/useCashFlow';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '@/src/lib/utils';
 import { exportCashFlowToPDF } from '@/src/lib/utils/pdf-export';
+import { useDebts } from '@/src/lib/hooks/useDebts';
+import { getDebtExpensesForCashFlow } from '@/src/services/debt.service';
+import type { Debt } from '@/src/services/debt.service';
 import type { CashFlowPeriodDTO, AdditionalItem, AdditionalItems } from '@/src/services/cash-flow.service';
 
 const MONTH_NAMES = [
@@ -265,6 +268,10 @@ function CashFlowEditor({
     defaultType: 'incomes' | 'expenses';
   }>({ isOpen: false, defaultType: 'incomes' });
 
+  // Import debt modal
+  const { data: allDebts } = useDebts();
+  const [showImportDebt, setShowImportDebt] = useState(false);
+
   const openCommentModal = (itemKey: string, colKey: number, label: string, periodLabel: string) => {
     setCommentModal({ isOpen: true, itemKey, colKey, label, periodLabel });
   };
@@ -290,6 +297,18 @@ function CashFlowEditor({
       ...prev,
       [type]: [...prev[type], item],
     }));
+  };
+
+  const handleImportDebt = (debt: Debt) => {
+    const periodsMeta = periods.map(p => ({ month: p.month, year: p.year }));
+    const item = getDebtExpensesForCashFlow(debt, periodsMeta);
+    if (item) {
+      setAdditionalItems(prev => ({
+        ...prev,
+        expenses: [...prev.expenses, item],
+      }));
+    }
+    setShowImportDebt(false);
   };
 
   // Generate periods from date range (for create mode)
@@ -889,6 +908,14 @@ function CashFlowEditor({
                         <Plus className="h-3.5 w-3.5" />
                         Gasto Recurrente
                       </button>
+                      {allDebts && allDebts.length > 0 && (
+                        <button type="button"
+                          onClick={() => setShowImportDebt(true)}
+                          className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors py-1">
+                          <Plus className="h-3.5 w-3.5" />
+                          Importar Deuda
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1012,6 +1039,50 @@ function CashFlowEditor({
         cellLabel={commentModal.label}
         periodLabel={commentModal.periodLabel}
       />
+
+      {/* Import Debt Modal */}
+      {showImportDebt && allDebts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setShowImportDebt(false)} />
+          <div className="relative z-10 w-full max-w-md rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Importar Deuda al Flujo</h3>
+              <button type="button" onClick={() => setShowImportDebt(false)} className="rounded p-1 hover:bg-gray-100">
+                <X className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6 space-y-2 max-h-80 overflow-auto">
+              {allDebts.filter(d => d.current_installment < d.total_installments).length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No hay deudas activas para importar.</p>
+              ) : (
+                allDebts
+                  .filter(d => d.current_installment < d.total_installments)
+                  .map(debt => (
+                    <button
+                      key={debt.id}
+                      type="button"
+                      onClick={() => handleImportDebt(debt)}
+                      className="w-full text-left rounded-lg border border-gray-200 p-3 hover:bg-purple-50 hover:border-purple-300 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{debt.name}</p>
+                          {debt.creditor && <p className="text-xs text-gray-500">{debt.creditor}</p>}
+                        </div>
+                        <p className="text-sm font-semibold text-gray-700">
+                          {formatCurrency(debt.original_amount)}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {debt.current_installment}/{debt.total_installments} cuotas — {debt.annual_rate}% anual
+                      </p>
+                    </button>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

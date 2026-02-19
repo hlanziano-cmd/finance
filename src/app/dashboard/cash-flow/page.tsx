@@ -677,6 +677,7 @@ function CashFlowEditor({
   const colCount = periods.length;
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6 pb-12">
       {/* General Info */}
       <Card>
@@ -1022,7 +1023,9 @@ function CashFlowEditor({
         </Button>
       </div>
 
-      {/* Modals */}
+    </form>
+
+      {/* Modals — outside form to avoid nested form issues */}
       <AddItemModal
         isOpen={addItemModal.isOpen}
         onClose={() => setAddItemModal(prev => ({ ...prev, isOpen: false }))}
@@ -1083,7 +1086,7 @@ function CashFlowEditor({
           </div>
         </div>
       )}
-    </form>
+    </>
   );
 }
 

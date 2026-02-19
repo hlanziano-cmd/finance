@@ -729,10 +729,19 @@ function CashFlowEditor({
         </CardContent>
       </Card>
 
-      {/* Payment Alerts */}
+      {/* Payment Alerts — only expenses */}
       <PaymentAlerts
-        items={[...additionalItems.incomes, ...additionalItems.expenses]}
+        items={additionalItems.expenses}
         periods={periods.map(p => ({ month: p.month, year: p.year }))}
+        onEdit={(itemId) => {
+          setAddItemModal({ isOpen: true, defaultType: 'expenses' });
+        }}
+        onDelete={(itemId) => {
+          const item = additionalItems.expenses.find(e => e.id === itemId);
+          if (item && confirm(`¿Eliminar el gasto "${item.name}"?`)) {
+            removeAdditionalItem('expenses', itemId);
+          }
+        }}
       />
 
       {/* Cash Flow Table */}

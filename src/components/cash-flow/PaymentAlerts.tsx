@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Bell, Calendar, AlertTriangle } from 'lucide-react';
+import { Bell, Calendar, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@/src/lib/utils';
 import type { AdditionalItem } from '@/src/services/cash-flow.service';
 
@@ -11,6 +11,7 @@ const MONTH_NAMES_SHORT = [
 ];
 
 interface PaymentAlert {
+  itemId: string;
   itemName: string;
   amount: number;
   paymentDay: number;
@@ -23,14 +24,13 @@ interface PaymentAlert {
 interface PaymentAlertsProps {
   items: AdditionalItem[];
   periods: { month: number; year: number }[];
+  onEdit?: (itemId: string) => void;
+  onDelete?: (itemId: string) => void;
 }
 
-export function PaymentAlerts({ items, periods }: PaymentAlertsProps) {
+export function PaymentAlerts({ items, periods, onEdit, onDelete }: PaymentAlertsProps) {
   const alerts = useMemo(() => {
     const today = new Date();
-    const currentDay = today.getDate();
-    const currentMonth = today.getMonth() + 1;
-    const currentYear = today.getFullYear();
 
     const result: PaymentAlert[] = [];
 
@@ -38,7 +38,6 @@ export function PaymentAlerts({ items, periods }: PaymentAlertsProps) {
       if (!item.recurrence?.paymentDay) continue;
       const { paymentDay, startCol, endCol, frequency } = item.recurrence;
 
-      // Find which periods this item applies to
       const step = frequency === 'single' ? 0
         : frequency === 'monthly' ? 1
         : frequency === 'bimonthly' ? 2
@@ -53,13 +52,13 @@ export function PaymentAlerts({ items, periods }: PaymentAlertsProps) {
         const period = periods[col - 1];
         if (!period) continue;
 
-        // Only check current and next month
         const periodDate = new Date(period.year, period.month - 1, paymentDay);
         const diffTime = periodDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays >= -3 && diffDays <= 7) {
           result.push({
+            itemId: item.id,
             itemName: item.name,
             amount: item.amounts[col] || item.recurrence.amount,
             paymentDay,
@@ -88,7 +87,7 @@ export function PaymentAlerts({ items, periods }: PaymentAlertsProps) {
       <div className="space-y-2">
         {alerts.map((alert, i) => (
           <div
-            key={`${alert.itemName}-${alert.month}-${alert.year}-${i}`}
+            key={`${alert.itemId}-${alert.month}-${alert.year}-${i}`}
             className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
               alert.isPastDue
                 ? 'bg-red-100 border border-red-200'
@@ -110,7 +109,7 @@ export function PaymentAlerts({ items, periods }: PaymentAlertsProps) {
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <span className="font-semibold text-gray-900">{formatCurrency(alert.amount)}</span>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                 alert.isPastDue
@@ -127,6 +126,26 @@ export function PaymentAlerts({ items, periods }: PaymentAlertsProps) {
                     ? 'Hoy'
                     : `En ${alert.daysUntil} día${alert.daysUntil !== 1 ? 's' : ''}`}
               </span>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(alert.itemId)}
+                  className="p-1 rounded hover:bg-amber-200 text-amber-700 transition-colors"
+                  title="Editar gasto"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(alert.itemId)}
+                  className="p-1 rounded hover:bg-red-200 text-red-600 transition-colors"
+                  title="Eliminar gasto"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
         ))}

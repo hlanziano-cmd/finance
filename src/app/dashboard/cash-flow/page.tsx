@@ -6,14 +6,13 @@ import { useRouter } from 'next/navigation';
 import {
   Plus, Minus, TrendingUp, TrendingDown, Trash2,
   Download, AlertCircle, Info, X, Save, ChevronDown, ChevronRight,
-  MessageSquare,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { MonthYearPicker } from '@/src/components/ui/MonthYearPicker';
 import { AddItemModal } from '@/src/components/cash-flow/AddItemModal';
-import { CommentModal } from '@/src/components/cash-flow/CommentModal';
 import { PaymentAlerts } from '@/src/components/cash-flow/PaymentAlerts';
+import { CellStatusPopover } from '@/src/components/cash-flow/CellStatusPopover';
 import {
   useCashFlows, useCashFlow, useCreateCashFlow,
   useUpdateCashFlow, useDeleteCashFlow,
@@ -23,7 +22,7 @@ import { exportCashFlowToPDF } from '@/src/lib/utils/pdf-export';
 import { useDebts } from '@/src/lib/hooks/useDebts';
 import { getDebtExpensesForCashFlow } from '@/src/services/debt.service';
 import type { Debt } from '@/src/services/debt.service';
-import type { CashFlowPeriodDTO, AdditionalItem, AdditionalItems } from '@/src/services/cash-flow.service';
+import type { CashFlowPeriodDTO, AdditionalItem, AdditionalItems, CellPayment } from '@/src/services/cash-flow.service';
 
 const MONTH_NAMES = [
   'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
@@ -32,29 +31,6 @@ const MONTH_NAMES = [
 
 function getPeriodLabel(period: { month: number; year: number }) {
   return `${MONTH_NAMES[period.month - 1]} ${period.year}`;
-}
-
-function CommentIndicator({
-  hasComment,
-  onClick,
-}: {
-  hasComment: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className={`absolute top-0 right-0 p-0.5 rounded-bl transition-opacity ${
-        hasComment
-          ? 'text-blue-500 opacity-100'
-          : 'text-gray-300 opacity-0 group-hover:opacity-100'
-      }`}
-      title={hasComment ? 'Ver comentario' : 'Agregar comentario'}
-    >
-      <MessageSquare className="h-3 w-3" />
-    </button>
-  );
 }
 
 function generateId() {
@@ -81,8 +57,8 @@ interface SubItemsHandlers {
   updateSubItemAmount: (parentKey: string, subItemId: string, month: number, amount: number) => void;
   subItemDisplayValues: Record<string, string>;
   setSubItemDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  comments: Record<string, Record<number, string>>;
-  openCommentModal: (itemKey: string, colKey: number, label: string, periodLabel: string) => void;
+  cellPayments: Record<string, Record<number, CellPayment>>;
+  onSaveCellPayment: (itemKey: string, colKey: number, data: { paid: boolean; date: string; comment: string }) => void;
 }
 
 export default function CashFlowPage() {
@@ -252,15 +228,8 @@ function CashFlowEditor({
   const [startDate, setStartDate] = useState({ month: currentMonth, year: currentYear });
   const [endDate, setEndDate] = useState({ month: 12, year: currentYear });
 
-  // Comments state: { itemKey: { colKey: "comment text" } }
-  const [comments, setComments] = useState<Record<string, Record<number, string>>>({});
-  const [commentModal, setCommentModal] = useState<{
-    isOpen: boolean;
-    itemKey: string;
-    colKey: number;
-    label: string;
-    periodLabel: string;
-  }>({ isOpen: false, itemKey: '', colKey: 0, label: '', periodLabel: '' });
+  // Cell payments: { itemKey: { colKey: { paid, date?, comment? } } }
+  const [cellPayments, setCellPayments] = useState<Record<string, Record<number, CellPayment>>>({});
 
   // Add item modal
   const [addItemModal, setAddItemModal] = useState<{
@@ -272,23 +241,24 @@ function CashFlowEditor({
   const { data: allDebts } = useDebts();
   const [showImportDebt, setShowImportDebt] = useState(false);
 
-  const openCommentModal = (itemKey: string, colKey: number, label: string, periodLabel: string) => {
-    setCommentModal({ isOpen: true, itemKey, colKey, label, periodLabel });
-  };
-
-  const handleSaveComment = (text: string) => {
-    setComments(prev => {
-      const itemComments = { ...(prev[commentModal.itemKey] || {}) };
-      if (text) {
-        itemComments[commentModal.colKey] = text;
+  const handleSaveCellPayment = (itemKey: string, colKey: number, data: { paid: boolean; date: string; comment: string }) => {
+    setCellPayments(prev => {
+      const itemCells = { ...(prev[itemKey] || {}) };
+      const hasData = data.paid || data.date || data.comment;
+      if (hasData) {
+        itemCells[colKey] = {
+          paid: data.paid,
+          ...(data.date ? { date: data.date } : {}),
+          ...(data.comment ? { comment: data.comment } : {}),
+        };
       } else {
-        delete itemComments[commentModal.colKey];
+        delete itemCells[colKey];
       }
-      if (Object.keys(itemComments).length === 0) {
-        const { [commentModal.itemKey]: _, ...rest } = prev;
+      if (Object.keys(itemCells).length === 0) {
+        const { [itemKey]: _, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [commentModal.itemKey]: itemComments };
+      return { ...prev, [itemKey]: itemCells };
     });
   };
 
@@ -392,8 +362,18 @@ function CashFlowEditor({
         if (cashFlow.additional_items.subItems) {
           setSubItems(cashFlow.additional_items.subItems);
         }
-        if (cashFlow.additional_items.comments) {
-          setComments(cashFlow.additional_items.comments);
+        if (cashFlow.additional_items.cellPayments) {
+          setCellPayments(cashFlow.additional_items.cellPayments);
+        } else if (cashFlow.additional_items.comments) {
+          // Migrate legacy comments into cellPayments
+          const migrated: Record<string, Record<number, CellPayment>> = {};
+          for (const [itemKey, cols] of Object.entries(cashFlow.additional_items.comments)) {
+            migrated[itemKey] = {};
+            for (const [colKey, text] of Object.entries(cols)) {
+              migrated[itemKey][Number(colKey)] = { paid: false, comment: text };
+            }
+          }
+          setCellPayments(migrated);
         }
       }
     }
@@ -528,7 +508,7 @@ function CashFlowEditor({
     subItems, expandedRows, toggleRowExpand, addSubItem,
     removeSubItem, updateSubItemName, updateSubItemAmount,
     subItemDisplayValues, setSubItemDisplayValues,
-    comments, openCommentModal,
+    cellPayments, onSaveCellPayment: handleSaveCellPayment,
   };
 
   // Calculate totals for a column (by index)
@@ -635,7 +615,7 @@ function CashFlowEditor({
       }),
       customLabels,
       subItems,
-      comments,
+      cellPayments,
     };
 
     const dto = {
@@ -874,22 +854,22 @@ function CashFlowEditor({
                 </tr>
 
                 <CashFlowRow label={getLabel('supplierPayments')} field="supplierPayments" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('supplierPayments', name)}
+                  onLabelChange={(name) => updateLabel('supplierPayments', name)} isExpense
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('payroll')} field="payroll" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('payroll', name)}
+                  onLabelChange={(name) => updateLabel('payroll', name)} isExpense
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('rent')} field="rent" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('rent', name)}
+                  onLabelChange={(name) => updateLabel('rent', name)} isExpense
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('utilities')} field="utilities" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('utilities', name)}
+                  onLabelChange={(name) => updateLabel('utilities', name)} isExpense
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('taxes')} field="taxes" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('taxes', name)}
+                  onLabelChange={(name) => updateLabel('taxes', name)} isExpense
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
                 <CashFlowRow label={getLabel('otherExpenses')} field="otherExpenses" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('otherExpenses', name)}
+                  onLabelChange={(name) => updateLabel('otherExpenses', name)} isExpense
                   displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
 
                 {additionalItems.expenses.map((item) => (
@@ -1043,15 +1023,6 @@ function CashFlowEditor({
         defaultType={addItemModal.defaultType}
       />
 
-      <CommentModal
-        isOpen={commentModal.isOpen}
-        onClose={() => setCommentModal(prev => ({ ...prev, isOpen: false }))}
-        comment={comments[commentModal.itemKey]?.[commentModal.colKey] || ''}
-        onSave={handleSaveComment}
-        cellLabel={commentModal.label}
-        periodLabel={commentModal.periodLabel}
-      />
-
       {/* Import Debt Modal */}
       {showImportDebt && allDebts && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -1105,9 +1076,10 @@ function CashFlowEditor({
 
 function CashFlowRow({
   label, field, periods, onChange, onLabelChange, displayValues, setDisplayValues,
+  isExpense,
   subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
   updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
-  comments, openCommentModal,
+  cellPayments, onSaveCellPayment,
 }: {
   label: string;
   field: keyof CashFlowPeriodDTO;
@@ -1116,6 +1088,7 @@ function CashFlowRow({
   onLabelChange?: (name: string) => void;
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  isExpense?: boolean;
 } & SubItemsHandlers) {
   const mySubItems = subItems[field] || [];
   const isExpanded = expandedRows[field] || false;
@@ -1153,20 +1126,25 @@ function CashFlowRow({
         </td>
         {periods.map((period, idx) => {
           const colKey = idx + 1;
-          const hasComment = !!(comments[field]?.[colKey]);
+          const cp = cellPayments[field]?.[colKey];
           if (hasChildren) {
             const monthSum = mySubItems.reduce((s, item) => s + (item.amounts[colKey] || 0), 0);
             return (
-              <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40 relative group">
+              <td key={idx} className={`border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 relative group ${cp?.paid ? 'bg-green-50/60' : 'bg-blue-50/40'}`}>
                 {monthSum > 0 ? formatCurrency(monthSum) : '$0'}
-                <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(field, colKey, label, getPeriodLabel(period))} />
+                <CellStatusPopover
+                  paid={cp?.paid || false} date={cp?.date || ''} comment={cp?.comment || ''}
+                  onSave={(data) => onSaveCellPayment(field, colKey, data)}
+                  label={label} periodLabel={getPeriodLabel(period)}
+                  type={isExpense ? 'expense' : 'income'}
+                />
               </td>
             );
           }
           const inputKey = `${idx}-${field}`;
           const currentValue = (period[field] as number) || 0;
           return (
-            <td key={idx} className="border border-gray-300 px-1 py-1 relative group">
+            <td key={idx} className={`border border-gray-300 px-1 py-1 relative group ${cp?.paid ? 'bg-green-50/60' : ''}`}>
               <input type="text"
                 value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
                 onChange={(e) => {
@@ -1179,7 +1157,12 @@ function CashFlowRow({
                 }}
                 className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
                 placeholder="0" />
-              <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(field, colKey, label, getPeriodLabel(period))} />
+              <CellStatusPopover
+                paid={cp?.paid || false} date={cp?.date || ''} comment={cp?.comment || ''}
+                onSave={(data) => onSaveCellPayment(field, colKey, data)}
+                label={label} periodLabel={getPeriodLabel(period)}
+                type={isExpense ? 'expense' : 'income'}
+              />
             </td>
           );
         })}
@@ -1189,11 +1172,12 @@ function CashFlowRow({
       </tr>
       {isExpanded && mySubItems.map(subItem => (
         <SubItemRow key={subItem.id} item={subItem} parentKey={field} periods={periods}
+          isExpense={isExpense}
           onNameChange={(name) => updateSubItemName(field, subItem.id, name)}
           onAmountChange={(colKey, amount) => updateSubItemAmount(field, subItem.id, colKey, amount)}
           onRemove={() => removeSubItem(field, subItem.id)}
           displayValues={subItemDisplayValues} setDisplayValues={setSubItemDisplayValues}
-          comments={comments} openCommentModal={openCommentModal} />
+          cellPayments={cellPayments} onSaveCellPayment={onSaveCellPayment} />
       ))}
     </>
   );
@@ -1205,7 +1189,7 @@ function CashFlowRow({
 
 function SubItemRow({
   item, parentKey, periods, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
-  comments, openCommentModal,
+  isExpense, cellPayments, onSaveCellPayment,
 }: {
   item: AdditionalItem;
   parentKey: string;
@@ -1215,8 +1199,9 @@ function SubItemRow({
   onRemove: () => void;
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  comments: Record<string, Record<number, string>>;
-  openCommentModal: (itemKey: string, colKey: number, label: string, periodLabel: string) => void;
+  isExpense?: boolean;
+  cellPayments: Record<string, Record<number, CellPayment>>;
+  onSaveCellPayment: (itemKey: string, colKey: number, data: { paid: boolean; date: string; comment: string }) => void;
 }) {
   const yearTotal = periods.reduce((sum, _, idx) => sum + (item.amounts[idx + 1] || 0), 0);
 
@@ -1238,9 +1223,9 @@ function SubItemRow({
         const colKey = idx + 1;
         const inputKey = `sub-${item.id}-${colKey}`;
         const currentValue = item.amounts[colKey] || 0;
-        const hasComment = !!(comments[item.id]?.[colKey]);
+        const cp = cellPayments[item.id]?.[colKey];
         return (
-          <td key={idx} className="border border-gray-300 px-1 py-0.5 bg-blue-50/30 relative group">
+          <td key={idx} className={`border border-gray-300 px-1 py-0.5 relative group ${cp?.paid ? 'bg-green-50/60' : 'bg-blue-50/30'}`}>
             <input type="text"
               value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
               onChange={(e) => {
@@ -1253,7 +1238,12 @@ function SubItemRow({
               }}
               className="w-full text-right px-1 py-0.5 text-xs text-gray-700 bg-transparent border-0 focus:ring-1 focus:ring-blue-400 rounded"
               placeholder="0" />
-            <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(item.id, colKey, item.name || 'Sub-rubro', getPeriodLabel(period))} />
+            <CellStatusPopover
+              paid={cp?.paid || false} date={cp?.date || ''} comment={cp?.comment || ''}
+              onSave={(data) => onSaveCellPayment(item.id, colKey, data)}
+              label={item.name || 'Sub-rubro'} periodLabel={getPeriodLabel(period)}
+              type={isExpense ? 'expense' : 'income'}
+            />
           </td>
         );
       })}
@@ -1272,7 +1262,7 @@ function DynamicCashFlowRow({
   item, type, periods, onNameChange, onAmountChange, onRemove, displayValues, setDisplayValues,
   subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
   updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
-  comments, openCommentModal,
+  cellPayments, onSaveCellPayment,
 }: {
   item: AdditionalItem;
   type: 'incomes' | 'expenses';
@@ -1287,6 +1277,7 @@ function DynamicCashFlowRow({
   const isExpanded = expandedRows[item.id] || false;
   const hasChildren = mySubItems.length > 0;
   const color = type === 'incomes' ? 'green' : 'red';
+  const isExpense = type === 'expenses';
 
   const effectiveYearTotal = hasChildren
     ? periods.reduce((sum, _, idx) => {
@@ -1324,20 +1315,25 @@ function DynamicCashFlowRow({
         </td>
         {periods.map((period, idx) => {
           const colKey = idx + 1;
-          const hasComment = !!(comments[item.id]?.[colKey]);
+          const cp = cellPayments[item.id]?.[colKey];
           if (hasChildren) {
             const monthSum = mySubItems.reduce((s, si) => s + (si.amounts[colKey] || 0), 0);
             return (
-              <td key={idx} className="border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 bg-blue-50/40 relative group">
+              <td key={idx} className={`border border-gray-300 px-2 py-2 text-right text-sm font-semibold text-gray-700 relative group ${cp?.paid ? 'bg-green-50/60' : 'bg-blue-50/40'}`}>
                 {monthSum > 0 ? formatCurrency(monthSum) : '$0'}
-                <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(item.id, colKey, item.name || 'Rubro', getPeriodLabel(period))} />
+                <CellStatusPopover
+                  paid={cp?.paid || false} date={cp?.date || ''} comment={cp?.comment || ''}
+                  onSave={(data) => onSaveCellPayment(item.id, colKey, data)}
+                  label={item.name || 'Rubro'} periodLabel={getPeriodLabel(period)}
+                  type={isExpense ? 'expense' : 'income'}
+                />
               </td>
             );
           }
           const inputKey = `${item.id}-${colKey}`;
           const currentValue = item.amounts[colKey] || 0;
           return (
-            <td key={idx} className="border border-gray-300 px-1 py-1 relative group">
+            <td key={idx} className={`border border-gray-300 px-1 py-1 relative group ${cp?.paid ? 'bg-green-50/60' : ''}`}>
               <input type="text"
                 value={displayValues[inputKey] ?? (currentValue > 0 ? formatNumberInput(currentValue) : '')}
                 onChange={(e) => {
@@ -1350,7 +1346,12 @@ function DynamicCashFlowRow({
                 }}
                 className="w-full text-right px-2 py-1 text-sm text-gray-900 border-0 focus:ring-1 focus:ring-blue-500 rounded"
                 placeholder="0" />
-              <CommentIndicator hasComment={hasComment} onClick={() => openCommentModal(item.id, colKey, item.name || 'Rubro', getPeriodLabel(period))} />
+              <CellStatusPopover
+                paid={cp?.paid || false} date={cp?.date || ''} comment={cp?.comment || ''}
+                onSave={(data) => onSaveCellPayment(item.id, colKey, data)}
+                label={item.name || 'Rubro'} periodLabel={getPeriodLabel(period)}
+                type={isExpense ? 'expense' : 'income'}
+              />
             </td>
           );
         })}
@@ -1360,11 +1361,12 @@ function DynamicCashFlowRow({
       </tr>
       {isExpanded && mySubItems.map(subItem => (
         <SubItemRow key={subItem.id} item={subItem} parentKey={item.id} periods={periods}
+          isExpense={isExpense}
           onNameChange={(name) => updateSubItemName(item.id, subItem.id, name)}
           onAmountChange={(colKey, amount) => updateSubItemAmount(item.id, subItem.id, colKey, amount)}
           onRemove={() => removeSubItem(item.id, subItem.id)}
           displayValues={subItemDisplayValues} setDisplayValues={setSubItemDisplayValues}
-          comments={comments} openCommentModal={openCommentModal} />
+          cellPayments={cellPayments} onSaveCellPayment={onSaveCellPayment} />
       ))}
     </>
   );

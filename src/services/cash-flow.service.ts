@@ -19,12 +19,19 @@ export interface AdditionalItem {
   recurrence?: RecurrenceConfig;
 }
 
+export interface CellPayment {
+  paid: boolean;
+  date?: string;    // "YYYY-MM-DD"
+  comment?: string;
+}
+
 export interface AdditionalItems {
   incomes: AdditionalItem[];
   expenses: AdditionalItem[];
   customLabels?: Record<string, string>;
   subItems?: Record<string, AdditionalItem[]>;
-  comments?: Record<string, Record<number, string>>; // itemKey -> { colKey -> comment text }
+  comments?: Record<string, Record<number, string>>; // legacy — migrated into cellPayments
+  cellPayments?: Record<string, Record<number, CellPayment>>; // itemKey -> { colKey -> { paid, date, comment } }
 }
 
 export interface CashFlowPeriodDTO {

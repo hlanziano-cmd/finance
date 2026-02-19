@@ -170,7 +170,7 @@ export default function BankAccountDetailPage() {
               <select
                 value={txForm.type}
                 onChange={(e) => setTxForm(prev => ({ ...prev, type: e.target.value as 'ingreso' | 'egreso' }))}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
                 <option value="ingreso">Ingreso</option>
                 <option value="egreso">Egreso</option>
@@ -185,7 +185,7 @@ export default function BankAccountDetailPage() {
                 value={txForm.amount}
                 onChange={(e) => setTxForm(prev => ({ ...prev, amount: e.target.value }))}
                 placeholder="0.00"
-                className="w-40 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-40 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 required
               />
             </div>
@@ -196,7 +196,7 @@ export default function BankAccountDetailPage() {
                 value={txForm.description}
                 onChange={(e) => setTxForm(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Ej: Pago proveedor, Venta cliente..."
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -205,7 +205,7 @@ export default function BankAccountDetailPage() {
                 type="date"
                 value={txForm.transactionDate}
                 onChange={(e) => setTxForm(prev => ({ ...prev, transactionDate: e.target.value }))}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <Button type="submit" isLoading={addTransactionMutation.isPending}>

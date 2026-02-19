@@ -193,7 +193,7 @@ export default function BankAccountsPage() {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Ej: Cuenta operativa"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -206,7 +206,7 @@ export default function BankAccountsPage() {
                   value={formData.bankName}
                   onChange={(e) => setFormData(prev => ({ ...prev, bankName: e.target.value }))}
                   placeholder="Ej: Bancolombia"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -217,7 +217,7 @@ export default function BankAccountsPage() {
                 <select
                   value={formData.accountType}
                   onChange={(e) => setFormData(prev => ({ ...prev, accountType: e.target.value as 'ahorro' | 'corriente' }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="corriente">Corriente</option>
                   <option value="ahorro">Ahorro</option>
@@ -232,7 +232,7 @@ export default function BankAccountsPage() {
                   value={formData.accountNumber}
                   onChange={(e) => setFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
                   placeholder="Ej: 1234567890"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               {!editingId && (
@@ -246,7 +246,7 @@ export default function BankAccountsPage() {
                     value={formData.initialBalance}
                     onChange={(e) => setFormData(prev => ({ ...prev, initialBalance: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               )}

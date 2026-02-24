@@ -19,6 +19,7 @@ import {
 } from '@/src/lib/hooks/useCashFlow';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '@/src/lib/utils';
 import { exportCashFlowToPDF } from '@/src/lib/utils/pdf-export';
+// excel-export is dynamically imported to avoid bundling exceljs in the initial chunk
 import { useDebts } from '@/src/lib/hooks/useDebts';
 import { getDebtExpensesForCashFlow } from '@/src/services/debt.service';
 import type { Debt } from '@/src/services/debt.service';
@@ -664,6 +665,13 @@ function CashFlowEditor({
     }
   };
 
+  const handleExportExcel = async () => {
+    if (cashFlow) {
+      const { exportCashFlowToExcel } = await import('@/src/lib/utils/excel-export');
+      exportCashFlowToExcel(cashFlow);
+    }
+  };
+
   if (mode === 'edit' && isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1043,6 +1051,10 @@ function CashFlowEditor({
               <Button type="button" variant="outline" onClick={handleExportPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Descargar PDF
+              </Button>
+              <Button type="button" variant="outline" onClick={handleExportExcel}>
+                <Download className="mr-2 h-4 w-4" />
+                Descargar Excel
               </Button>
               <Button type="button" variant="outline"
                 onClick={() => onDelete?.(cashFlowId, cashFlowName)}

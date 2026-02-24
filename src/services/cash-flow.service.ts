@@ -32,6 +32,7 @@ export interface AdditionalItems {
   subItems?: Record<string, AdditionalItem[]>;
   comments?: Record<string, Record<number, string>>; // legacy — migrated into cellPayments
   cellPayments?: Record<string, Record<number, CellPayment>>; // itemKey -> { colKey -> { paid, date, comment } }
+  hiddenRows?: string[]; // field names of hidden default rows (e.g. ['rent', 'taxes'])
 }
 
 export interface CashFlowPeriodDTO {

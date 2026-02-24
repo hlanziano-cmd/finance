@@ -231,6 +231,21 @@ function CashFlowEditor({
   // Cell payments: { itemKey: { colKey: { paid, date?, comment? } } }
   const [cellPayments, setCellPayments] = useState<Record<string, Record<number, CellPayment>>>({});
 
+  // Hidden default rows
+  const [hiddenRows, setHiddenRows] = useState<string[]>([]);
+
+  const hideRow = (field: string) => {
+    const label = customLabels[field] || DEFAULT_LABELS[field] || field;
+    if (!confirm(`¿Eliminar la fila "${label}"? Los valores se pondrán en cero. Puedes restaurarla después.`)) return;
+    setHiddenRows(prev => [...prev, field]);
+    // Zero out the period values for the hidden row
+    setPeriods(prev => prev.map(p => ({ ...p, [field]: 0 })));
+  };
+
+  const restoreRow = (field: string) => {
+    setHiddenRows(prev => prev.filter(f => f !== field));
+  };
+
   // Add item modal
   const [addItemModal, setAddItemModal] = useState<{
     isOpen: boolean;
@@ -361,6 +376,9 @@ function CashFlowEditor({
         }
         if (cashFlow.additional_items.subItems) {
           setSubItems(cashFlow.additional_items.subItems);
+        }
+        if (cashFlow.additional_items.hiddenRows) {
+          setHiddenRows(cashFlow.additional_items.hiddenRows);
         }
         if (cashFlow.additional_items.cellPayments) {
           setCellPayments(cashFlow.additional_items.cellPayments);
@@ -538,18 +556,21 @@ function CashFlowEditor({
       getEffective('otherIncome', period.otherIncome) +
       additionalIncome;
 
+    const expenseField = (key: string, fallback: number) =>
+      hiddenRows.includes(key) ? 0 : getEffective(key, fallback);
+
     const totalOutflows =
-      getEffective('supplierPayments', period.supplierPayments) +
-      getEffective('payroll', period.payroll) +
-      getEffective('rent', period.rent) +
-      getEffective('utilities', period.utilities) +
-      getEffective('taxes', period.taxes) +
-      getEffective('otherExpenses', period.otherExpenses) +
+      expenseField('supplierPayments', period.supplierPayments) +
+      expenseField('payroll', period.payroll) +
+      expenseField('rent', period.rent) +
+      expenseField('utilities', period.utilities) +
+      expenseField('taxes', period.taxes) +
+      expenseField('otherExpenses', period.otherExpenses) +
       additionalExpense;
 
     const netCashFlow = totalInflows - totalOutflows;
     return { totalInflows, totalOutflows, netCashFlow };
-  }, [periods, additionalItems, subItems]);
+  }, [periods, additionalItems, subItems, hiddenRows]);
 
   const calculateGrandTotals = useCallback(() => {
     let totalInflows = 0;
@@ -616,6 +637,7 @@ function CashFlowEditor({
       customLabels,
       subItems,
       cellPayments,
+      hiddenRows,
     };
 
     const dto = {
@@ -853,24 +875,36 @@ function CashFlowEditor({
                   </td>
                 </tr>
 
-                <CashFlowRow label={getLabel('supplierPayments')} field="supplierPayments" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('supplierPayments', name)} isExpense
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
-                <CashFlowRow label={getLabel('payroll')} field="payroll" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('payroll', name)} isExpense
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
-                <CashFlowRow label={getLabel('rent')} field="rent" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('rent', name)} isExpense
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
-                <CashFlowRow label={getLabel('utilities')} field="utilities" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('utilities', name)} isExpense
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
-                <CashFlowRow label={getLabel('taxes')} field="taxes" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('taxes', name)} isExpense
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
-                <CashFlowRow label={getLabel('otherExpenses')} field="otherExpenses" periods={periods} onChange={handleValueChange}
-                  onLabelChange={(name) => updateLabel('otherExpenses', name)} isExpense
-                  displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
+                {!hiddenRows.includes('supplierPayments') && (
+                  <CashFlowRow label={getLabel('supplierPayments')} field="supplierPayments" periods={periods} onChange={handleValueChange}
+                    onLabelChange={(name) => updateLabel('supplierPayments', name)} isExpense onRemove={() => hideRow('supplierPayments')}
+                    displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
+                )}
+                {!hiddenRows.includes('payroll') && (
+                  <CashFlowRow label={getLabel('payroll')} field="payroll" periods={periods} onChange={handleValueChange}
+                    onLabelChange={(name) => updateLabel('payroll', name)} isExpense onRemove={() => hideRow('payroll')}
+                    displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
+                )}
+                {!hiddenRows.includes('rent') && (
+                  <CashFlowRow label={getLabel('rent')} field="rent" periods={periods} onChange={handleValueChange}
+                    onLabelChange={(name) => updateLabel('rent', name)} isExpense onRemove={() => hideRow('rent')}
+                    displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
+                )}
+                {!hiddenRows.includes('utilities') && (
+                  <CashFlowRow label={getLabel('utilities')} field="utilities" periods={periods} onChange={handleValueChange}
+                    onLabelChange={(name) => updateLabel('utilities', name)} isExpense onRemove={() => hideRow('utilities')}
+                    displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
+                )}
+                {!hiddenRows.includes('taxes') && (
+                  <CashFlowRow label={getLabel('taxes')} field="taxes" periods={periods} onChange={handleValueChange}
+                    onLabelChange={(name) => updateLabel('taxes', name)} isExpense onRemove={() => hideRow('taxes')}
+                    displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
+                )}
+                {!hiddenRows.includes('otherExpenses') && (
+                  <CashFlowRow label={getLabel('otherExpenses')} field="otherExpenses" periods={periods} onChange={handleValueChange}
+                    onLabelChange={(name) => updateLabel('otherExpenses', name)} isExpense onRemove={() => hideRow('otherExpenses')}
+                    displayValues={displayValues} setDisplayValues={setDisplayValues} {...subProps} />
+                )}
 
                 {additionalItems.expenses.map((item) => (
                   <DynamicCashFlowRow
@@ -905,6 +939,24 @@ function CashFlowEditor({
                           <Plus className="h-3.5 w-3.5" />
                           Importar Deuda
                         </button>
+                      )}
+                      {hiddenRows.length > 0 && (
+                        <div className="relative group/restore ml-auto">
+                          <button type="button"
+                            className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors py-1">
+                            <Plus className="h-3.5 w-3.5" />
+                            Restaurar fila ({hiddenRows.length})
+                          </button>
+                          <div className="hidden group-hover/restore:block absolute bottom-full left-0 mb-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]">
+                            {hiddenRows.map(field => (
+                              <button key={field} type="button"
+                                onClick={() => restoreRow(field)}
+                                className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                                {getLabel(field)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </td>
@@ -1076,7 +1128,7 @@ function CashFlowEditor({
 
 function CashFlowRow({
   label, field, periods, onChange, onLabelChange, displayValues, setDisplayValues,
-  isExpense,
+  isExpense, onRemove,
   subItems, expandedRows, toggleRowExpand, addSubItem, removeSubItem,
   updateSubItemName, updateSubItemAmount, subItemDisplayValues, setSubItemDisplayValues,
   cellPayments, onSaveCellPayment,
@@ -1089,6 +1141,7 @@ function CashFlowRow({
   displayValues: Record<string, string>;
   setDisplayValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   isExpense?: boolean;
+  onRemove?: () => void;
 } & SubItemsHandlers) {
   const mySubItems = subItems[field] || [];
   const isExpanded = expandedRows[field] || false;
@@ -1104,7 +1157,7 @@ function CashFlowRow({
 
   return (
     <>
-      <tr className="hover:bg-gray-50">
+      <tr className="group/row hover:bg-gray-50">
         <td className="sticky left-0 z-10 bg-gray-50 hover:bg-gray-100 border border-gray-300 px-1 py-1">
           <div className="flex items-center gap-0.5">
             <button type="button" onClick={() => toggleRowExpand(field)}
@@ -1122,6 +1175,12 @@ function CashFlowRow({
               className="flex-shrink-0 p-0.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50" title="Agregar sub-rubro">
               <Plus className="h-3.5 w-3.5" />
             </button>
+            {onRemove && (
+              <button type="button" onClick={onRemove}
+                className="flex-shrink-0 p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/row:opacity-100 transition-opacity" title="Eliminar fila">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </td>
         {periods.map((period, idx) => {

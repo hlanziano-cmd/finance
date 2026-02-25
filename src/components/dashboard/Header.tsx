@@ -1,14 +1,24 @@
 // src/components/dashboard/Header.tsx
 'use client';
 
-import { Bell, Search } from 'lucide-react';
-import { Button } from '@/src/components/ui/Button';
+import { Bell, Menu, Search } from 'lucide-react';
 
-export function Header() {
+interface HeaderProps {
+  onMenuToggle?: () => void;
+}
+
+export function Header({ onMenuToggle }: HeaderProps) {
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
-      {/* Search */}
-      <div className="flex flex-1 items-center">
+      {/* Mobile menu toggle + Search */}
+      <div className="flex flex-1 items-center gap-3">
+        <button
+          onClick={onMenuToggle}
+          className="rounded-lg p-2 hover:bg-gray-100 lg:hidden"
+          title="Abrir menú"
+        >
+          <Menu className="h-5 w-5 text-gray-600" />
+        </button>
         <div className="relative w-96">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input

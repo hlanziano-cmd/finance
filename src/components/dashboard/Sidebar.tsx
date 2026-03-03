@@ -15,6 +15,7 @@ import {
   CreditCard,
   ChevronsLeft,
   ChevronsRight,
+  ArrowUpDown,
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Flujo de Caja', href: '/dashboard/cash-flow', icon: Coins },
   { name: 'Cuentas Bancarias', href: '/dashboard/bank-accounts', icon: Landmark },
   { name: 'Deudas', href: '/dashboard/debts', icon: CreditCard },
+  { name: 'Ingresos y Gastos', href: '/dashboard/transactions', icon: ArrowUpDown },
   { name: 'Indicadores', href: '/dashboard/indicators', icon: TrendingUp },
   { name: 'Eval. Proyectos', href: '/dashboard/project-evaluation', icon: ClipboardList },
   { name: 'Configuración', href: '/dashboard/settings', icon: Settings },

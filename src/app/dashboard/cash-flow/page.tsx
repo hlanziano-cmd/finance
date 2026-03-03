@@ -24,6 +24,8 @@ import { useDebts } from '@/src/lib/hooks/useDebts';
 import { getDebtExpensesForCashFlow } from '@/src/services/debt.service';
 import type { Debt } from '@/src/services/debt.service';
 import type { CashFlowPeriodDTO, AdditionalItem, AdditionalItems, CellPayment } from '@/src/services/cash-flow.service';
+import { useTransactions } from '@/src/lib/hooks/useTransactions';
+import { getTransactionSummaryForCashFlow } from '@/src/services/transaction.service';
 
 const MONTH_NAMES = [
   'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
@@ -257,6 +259,11 @@ function CashFlowEditor({
   const { data: allDebts } = useDebts();
   const [showImportDebt, setShowImportDebt] = useState(false);
 
+  // Import transactions
+  const { data: allTransactions } = useTransactions();
+  const [showImportTransactions, setShowImportTransactions] = useState(false);
+  const [importTxPeriodIdx, setImportTxPeriodIdx] = useState(0);
+
   const handleSaveCellPayment = (itemKey: string, colKey: number, data: { paid: boolean; date: string; comment: string }) => {
     setCellPayments(prev => {
       const itemCells = { ...(prev[itemKey] || {}) };
@@ -295,6 +302,16 @@ function CashFlowEditor({
       }));
     }
     setShowImportDebt(false);
+  };
+
+  const handleImportTransactions = () => {
+    if (!allTransactions || !periods[importTxPeriodIdx]) return;
+    const period = periods[importTxPeriodIdx];
+    const summary = getTransactionSummaryForCashFlow(allTransactions, period.month, period.year);
+    setPeriods(prev => prev.map((p, i) =>
+      i === importTxPeriodIdx ? { ...p, ...summary } : p
+    ));
+    setShowImportTransactions(false);
   };
 
   // Generate periods from date range (for create mode)
@@ -948,6 +965,14 @@ function CashFlowEditor({
                           Importar Deuda
                         </button>
                       )}
+                      {allTransactions && allTransactions.length > 0 && (
+                        <button type="button"
+                          onClick={() => { setImportTxPeriodIdx(0); setShowImportTransactions(true); }}
+                          className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 transition-colors py-1">
+                          <Plus className="h-3.5 w-3.5" />
+                          Importar Transacciones
+                        </button>
+                      )}
                       {hiddenRows.length > 0 && (
                         <div className="relative group/restore ml-auto">
                           <button type="button"
@@ -1086,6 +1111,53 @@ function CashFlowEditor({
         periods={periods.map(p => ({ month: p.month, year: p.year }))}
         defaultType={addItemModal.defaultType}
       />
+
+      {/* Import Transactions Modal */}
+      {showImportTransactions && allTransactions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setShowImportTransactions(false)} />
+          <div className="relative z-10 w-full max-w-md rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Importar Transacciones</h3>
+              <button type="button" onClick={() => setShowImportTransactions(false)} className="rounded p-1 hover:bg-gray-100">
+                <X className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-500">
+                Selecciona el período al que deseas importar los totales de tus transacciones registradas.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Período</label>
+                <select
+                  value={importTxPeriodIdx}
+                  onChange={(e) => setImportTxPeriodIdx(Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                >
+                  {periods.map((p, i) => (
+                    <option key={i} value={i}>
+                      {MONTH_NAMES[p.month - 1]} {p.year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-gray-400">
+                Los valores existentes del período seleccionado serán reemplazados con los totales calculados de tus transacciones.
+              </p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowImportTransactions(false)}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  Cancelar
+                </button>
+                <button type="button" onClick={handleImportTransactions}
+                  className="flex-1 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700">
+                  Importar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Import Debt Modal */}
       {showImportDebt && allDebts && (

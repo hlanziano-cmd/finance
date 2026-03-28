@@ -31,6 +31,7 @@ export interface TransactionDTO {
   description?: string;
   reference?: string;
   recurring?: boolean;
+  cash_flow_id?: string | null;
 }
 
 export interface Transaction {
@@ -42,6 +43,7 @@ export interface Transaction {
   description: string | null;
   reference: string | null;
   recurring: boolean;
+  cash_flow_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -52,6 +54,7 @@ export interface TransactionFilters {
   year?: number;
   type?: TransactionType;
   category?: string;
+  cashFlowId?: string;
 }
 
 export class TransactionService {
@@ -76,6 +79,7 @@ export class TransactionService {
         description: dto.description || null,
         reference: dto.reference || null,
         recurring: dto.recurring ?? false,
+        cash_flow_id: dto.cash_flow_id ?? null,
         created_by: user.id,
       })
       .select()
@@ -101,6 +105,10 @@ export class TransactionService {
 
     if (filters?.category) {
       query = query.eq('category', filters.category);
+    }
+
+    if (filters?.cashFlowId) {
+      query = query.eq('cash_flow_id', filters.cashFlowId);
     }
 
     if (filters?.year) {
@@ -150,6 +158,7 @@ export class TransactionService {
         description: dto.description || null,
         reference: dto.reference || null,
         recurring: dto.recurring ?? false,
+        cash_flow_id: dto.cash_flow_id ?? null,
       })
       .eq('id', id)
       .eq('created_by', user.id)
@@ -184,7 +193,10 @@ export function getTransactionSummaryForCashFlow(
   const daysInMonth = new Date(year, month, 0).getDate();
   const monthEnd = `${year}-${monthStr}-${daysInMonth}`;
 
-  const inPeriod = transactions.filter(t => t.date >= monthStart && t.date <= monthEnd);
+  // Recurring transactions count once in any period at/after their start date
+  const inPeriod = transactions.filter(t =>
+    t.recurring ? t.date <= monthEnd : (t.date >= monthStart && t.date <= monthEnd)
+  );
 
   const income = (categories: string[]) =>
     inPeriod

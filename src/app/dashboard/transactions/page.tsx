@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import {
   Plus, Pencil, Trash2, TrendingUp, TrendingDown, ArrowUpDown,
-  X, Copy, Check, MessageCircle,
+  X, Copy, Check, MessageCircle, Target,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -12,6 +12,8 @@ import { formatCurrency, formatNumberInput, parseNumberInput } from '@/src/lib/u
 import {
   useTransactions, useCreateTransaction, useUpdateTransaction, useDeleteTransaction,
 } from '@/src/lib/hooks/useTransactions';
+import { useCashFlows } from '@/src/lib/hooks/useCashFlow';
+import { BudgetTracker } from '@/src/components/cash-flow/BudgetTracker';
 import {
   INCOME_CATEGORIES, EXPENSE_CATEGORIES,
   type Transaction, type TransactionDTO, type TransactionType,
@@ -81,6 +83,8 @@ function TransactionModal({
   const [description, setDescription] = useState(initial?.description ?? '');
   const [reference, setReference] = useState(initial?.reference ?? '');
   const [recurring, setRecurring] = useState(initial?.recurring ?? false);
+  const [cashFlowId, setCashFlowId] = useState<string>(initial?.cash_flow_id ?? '');
+  const { data: cashFlows } = useCashFlows();
 
   const isCustomCategory = category === '__custom__';
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
@@ -93,7 +97,7 @@ function TransactionModal({
     if (!amount) return alert('Ingresa un monto válido');
     if (!date) return alert('Ingresa la fecha');
 
-    onSave({ type, category: finalCategory, amount, date, description: description || undefined, reference: reference || undefined, recurring });
+    onSave({ type, category: finalCategory, amount, date, description: description || undefined, reference: reference || undefined, recurring, cash_flow_id: cashFlowId || null });
   };
 
   return (
@@ -219,6 +223,25 @@ function TransactionModal({
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
+
+          {/* Project */}
+          {cashFlows && cashFlows.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Proyecto <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
+              <select
+                value={cashFlowId}
+                onChange={(e) => setCashFlowId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">Sin proyecto</option>
+                {cashFlows.map((cf: any) => (
+                  <option key={cf.id} value={cf.id}>{cf.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Recurring */}
           <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 hover:bg-gray-100 transition-colors">
@@ -348,11 +371,16 @@ export default function TransactionsPage() {
   const [filterDay, setFilterDay] = useState<number | ''>('');
   const [filterType, setFilterType] = useState<TransactionType | 'all'>('all');
   const [filterCategory, setFilterCategory] = useState('');
+  const [filterCashFlowId, setFilterCashFlowId] = useState('');
+  const [showBudgetTracker, setShowBudgetTracker] = useState(false);
+
+  const { data: cashFlowProjects } = useCashFlows();
 
   const { data: transactions, isLoading, error } = useTransactions({
     month: filterMonth,
     year: filterYear,
     type: filterType !== 'all' ? filterType : undefined,
+    cashFlowId: filterCashFlowId || undefined,
   });
 
   const createMutation = useCreateTransaction();
@@ -451,6 +479,12 @@ export default function TransactionsPage() {
           <p className="text-sm text-gray-500 mt-1">Registra y consulta tus transacciones</p>
         </div>
         <div className="flex items-center gap-2">
+          {filterCashFlowId && (
+            <Button variant="outline" onClick={() => setShowBudgetTracker(true)}>
+              <Target className="mr-2 h-4 w-4 text-blue-500" />
+              Presupuesto vs Real
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setShowWhatsApp(true)}>
             <MessageCircle className="mr-2 h-4 w-4 text-green-500" />
             Plantilla WhatsApp
@@ -461,6 +495,37 @@ export default function TransactionsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Project tabs */}
+      {cashFlowProjects && cashFlowProjects.length > 0 && (
+        <div className="border-b border-gray-200">
+          <div className="flex items-center gap-1 overflow-x-auto pb-px">
+            <button
+              onClick={() => { setFilterCashFlowId(''); setShowBudgetTracker(false); }}
+              className={`whitespace-nowrap rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${
+                !filterCashFlowId
+                  ? 'border-b-2 border-blue-600 text-blue-600 bg-white'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              }`}
+            >
+              Todos
+            </button>
+            {cashFlowProjects.map((cf: any) => (
+              <button
+                key={cf.id}
+                onClick={() => setFilterCashFlowId(cf.id)}
+                className={`whitespace-nowrap rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  filterCashFlowId === cf.id
+                    ? 'border-b-2 border-blue-600 text-blue-600 bg-white'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                }`}
+              >
+                {cf.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -712,6 +777,14 @@ export default function TransactionsPage() {
         />
       )}
       {showWhatsApp && <WhatsAppModal onClose={() => setShowWhatsApp(false)} />}
+      {showBudgetTracker && filterCashFlowId && (
+        <BudgetTracker
+          cashFlowId={filterCashFlowId}
+          defaultMonth={filterMonth}
+          defaultYear={filterYear}
+          onClose={() => setShowBudgetTracker(false)}
+        />
+      )}
     </div>
   );
 }

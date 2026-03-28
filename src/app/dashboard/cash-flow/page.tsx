@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Minus, TrendingUp, TrendingDown, Trash2,
-  Download, X, Save, ChevronDown, ChevronRight, CalendarDays,
+  Download, X, Save, ChevronDown, ChevronRight, CalendarDays, Target,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -14,6 +14,7 @@ import { AddItemModal } from '@/src/components/cash-flow/AddItemModal';
 import { PaymentAlerts } from '@/src/components/cash-flow/PaymentAlerts';
 import { CellStatusPopover } from '@/src/components/cash-flow/CellStatusPopover';
 import { PaymentCalendar } from '@/src/components/cash-flow/PaymentCalendar';
+import { BudgetTracker } from '@/src/components/cash-flow/BudgetTracker';
 import {
   useCashFlows, useCashFlow, useCreateCashFlow,
   useUpdateCashFlow, useDeleteCashFlow,
@@ -267,6 +268,9 @@ function CashFlowEditor({
 
   // Payment calendar
   const [showCalendar, setShowCalendar] = useState(false);
+
+  // Budget tracker
+  const [showBudgetTracker, setShowBudgetTracker] = useState(false);
 
   const handleSaveCellPayment = (itemKey: string, colKey: number, data: { paid: boolean; date: string; comment: string }) => {
     setCellPayments(prev => {
@@ -1074,6 +1078,10 @@ function CashFlowEditor({
         <div className="flex gap-2">
           {mode === 'edit' && cashFlowId && (
             <>
+              <Button type="button" variant="outline" onClick={() => setShowBudgetTracker(true)}>
+                <Target className="mr-2 h-4 w-4 text-blue-500" />
+                Presupuesto vs Real
+              </Button>
               <Button type="button" variant="outline" onClick={() => setShowCalendar(true)}>
                 <CalendarDays className="mr-2 h-4 w-4" />
                 Calendario de Pagos
@@ -1206,6 +1214,16 @@ function CashFlowEditor({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Budget Tracker Modal */}
+      {showBudgetTracker && cashFlowId && (
+        <BudgetTracker
+          cashFlowId={cashFlowId}
+          defaultMonth={periods[0]?.month}
+          defaultYear={periods[0]?.year}
+          onClose={() => setShowBudgetTracker(false)}
+        />
       )}
 
       {/* Payment Calendar Modal */}

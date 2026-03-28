@@ -363,18 +363,46 @@ export default function TransactionsPage() {
   const [editTarget, setEditTarget] = useState<Transaction | undefined>();
   const [showWhatsApp, setShowWhatsApp] = useState(false);
 
-  // Client-side filters (category + day); recurring transactions bypass day filter
+  // Expand recurring transactions into one row per active day; filter non-recurring normally
   const filtered = useMemo(() => {
-    if (!transactions) return [];
-    return transactions.filter(t => {
-      if (filterCategory && t.category !== filterCategory) return false;
-      if (filterDay !== '' && !t.recurring) {
-        const day = new Date(t.date + 'T12:00:00').getDate();
-        if (day !== filterDay) return false;
+    if (!transactions) return [] as (Transaction & { displayDate: string; rowKey: string })[];
+    const rows: (Transaction & { displayDate: string; rowKey: string })[] = [];
+    const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
+    const mm = String(filterMonth).padStart(2, '0');
+
+    for (const t of transactions) {
+      if (filterCategory && t.category !== filterCategory) continue;
+
+      if (!t.recurring) {
+        if (filterDay !== '') {
+          const day = new Date(t.date + 'T12:00:00').getDate();
+          if (day !== filterDay) continue;
+        }
+        rows.push({ ...t, displayDate: t.date, rowKey: t.id });
+      } else {
+        // Recurring: generate one instance per day from start date onwards
+        const startDate = new Date(t.date + 'T00:00:00');
+        if (filterDay !== '') {
+          const target = new Date(filterYear, filterMonth - 1, filterDay);
+          if (startDate <= target) {
+            const dd = String(filterDay).padStart(2, '0');
+            rows.push({ ...t, displayDate: `${filterYear}-${mm}-${dd}`, rowKey: `${t.id}-${filterDay}` });
+          }
+        } else {
+          for (let d = 1; d <= daysInMonth; d++) {
+            const dayDate = new Date(filterYear, filterMonth - 1, d);
+            if (dayDate >= startDate) {
+              const dd = String(d).padStart(2, '0');
+              rows.push({ ...t, displayDate: `${filterYear}-${mm}-${dd}`, rowKey: `${t.id}-${d}` });
+            }
+          }
+        }
       }
-      return true;
-    });
-  }, [transactions, filterCategory, filterDay]);
+    }
+
+    rows.sort((a, b) => b.displayDate.localeCompare(a.displayDate));
+    return rows;
+  }, [transactions, filterCategory, filterDay, filterMonth, filterYear]);
 
   const summary = useMemo(() => {
     const totalIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -383,7 +411,12 @@ export default function TransactionsPage() {
   }, [filtered]);
 
   const handleOpenCreate = () => { setEditTarget(undefined); setShowModal(true); };
-  const handleOpenEdit = (t: Transaction) => { setEditTarget(t); setShowModal(true); };
+  const handleOpenEdit = (t: Transaction) => {
+    // For recurring instances find the original record so edit shows the real start date
+    const original = transactions?.find(tx => tx.id === t.id) ?? t;
+    setEditTarget(original);
+    setShowModal(true);
+  };
 
   const handleSave = async (dto: TransactionDTO) => {
     if (editTarget) {
@@ -590,9 +623,9 @@ export default function TransactionsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filtered.map((t) => {
-                    const dateObj = new Date(t.date + 'T12:00:00');
+                    const dateObj = new Date(t.displayDate + 'T12:00:00');
                     return (
-                      <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={t.rowKey} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
                           {dateObj.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </td>

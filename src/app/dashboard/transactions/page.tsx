@@ -464,6 +464,22 @@ export default function TransactionsPage() {
         <CardContent className="pt-4 pb-4">
           <div className="flex flex-wrap items-center gap-3">
             <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Día</label>
+              <select
+                value={filterDay}
+                onChange={(e) => setFilterDay(e.target.value === '' ? '' : Number(e.target.value))}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Todos</option>
+                {Array.from(
+                  { length: new Date(filterYear, filterMonth, 0).getDate() },
+                  (_, i) => i + 1
+                ).map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Mes</label>
               <select
                 value={filterMonth}
@@ -483,22 +499,6 @@ export default function TransactionsPage() {
                 className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
               >
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Día</label>
-              <select
-                value={filterDay}
-                onChange={(e) => setFilterDay(e.target.value === '' ? '' : Number(e.target.value))}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">Todos</option>
-                {Array.from(
-                  { length: new Date(filterYear, filterMonth, 0).getDate() },
-                  (_, i) => i + 1
-                ).map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
               </select>
             </div>
             <div>

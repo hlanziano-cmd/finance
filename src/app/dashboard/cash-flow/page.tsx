@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Minus, TrendingUp, TrendingDown, Trash2,
-  Download, AlertCircle, Info, X, Save, ChevronDown, ChevronRight, CalendarDays,
+  Download, X, Save, ChevronDown, ChevronRight, CalendarDays,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -798,7 +798,7 @@ function CashFlowEditor({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-auto max-h-[65vh] border border-gray-200 rounded-lg scrollbar-thin">
+          <div className="overflow-auto max-h-[80vh] border border-gray-200 rounded-lg scrollbar-thin">
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-30">
                 {/* Month/Year selector row */}
@@ -1066,9 +1066,6 @@ function CashFlowEditor({
             </table>
           </div>
 
-          {grandTotals.totalInflows > 0 && (
-            <CashFlowAnalysis grandTotals={grandTotals} calculateColumnTotals={calculateColumnTotals} columnCount={periods.length} />
-          )}
         </CardContent>
       </Card>
 
@@ -1536,116 +1533,3 @@ function DynamicCashFlowRow({
   );
 }
 
-// ==========================================
-// CashFlowAnalysis Component
-// ==========================================
-
-function CashFlowAnalysis({
-  grandTotals,
-  calculateColumnTotals,
-  columnCount,
-}: {
-  grandTotals: { totalInflows: number; totalOutflows: number; netCashFlow: number };
-  calculateColumnTotals: (colIdx: number) => { totalInflows: number; totalOutflows: number; netCashFlow: number };
-  columnCount: number;
-}) {
-  const columnAnalysis = Array.from({ length: columnCount }, (_, i) => ({
-    col: i,
-    ...calculateColumnTotals(i),
-  }));
-  const positiveColumns = columnAnalysis.filter(c => c.netCashFlow > 0).length;
-  const negativeColumns = columnAnalysis.filter(c => c.netCashFlow < 0).length;
-  const avgFlow = columnCount > 0 ? grandTotals.netCashFlow / columnCount : 0;
-
-  return (
-    <div className="mt-6 space-y-4">
-      <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
-        <div className="flex items-start gap-3">
-          {grandTotals.netCashFlow >= 0 ? (
-            <TrendingUp className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-          ) : (
-            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-          )}
-          <div className="flex-1">
-            <p className="font-bold text-gray-900 text-lg mb-2">Análisis del Flujo Operacional</p>
-            <p className="text-sm text-gray-700">
-              {grandTotals.netCashFlow >= 0 ? (
-                <>Tu negocio genera un flujo de caja operacional <strong className="text-green-700">positivo</strong> de{' '}
-                <strong>{formatCurrency(grandTotals.netCashFlow)}</strong> en el periodo analizado.</>
-              ) : (
-                <>Tu negocio presenta un flujo de caja operacional <strong className="text-red-700">negativo</strong> de{' '}
-                <strong>{formatCurrency(Math.abs(grandTotals.netCashFlow))}</strong> en el periodo analizado.</>
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-          <p className="font-semibold text-blue-900 mb-3">Indicadores Clave</p>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-700">Periodos con flujo positivo:</span>
-              <span className="font-semibold text-green-700">{positiveColumns} de {columnCount}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-700">Periodos con flujo negativo:</span>
-              <span className="font-semibold text-red-700">{negativeColumns} de {columnCount}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-700">Flujo promedio por periodo:</span>
-              <span className={`font-semibold ${avgFlow >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {formatCurrency(avgFlow)}
-              </span>
-            </div>
-            <div className="flex justify-between pt-2 border-t border-blue-300">
-              <span className="text-gray-700">Total entradas:</span>
-              <span className="font-semibold text-green-700">{formatCurrency(grandTotals.totalInflows)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-700">Total salidas:</span>
-              <span className="font-semibold text-red-700">{formatCurrency(grandTotals.totalOutflows)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
-          <p className="font-semibold text-amber-900 mb-3">Recomendaciones</p>
-          <div className="space-y-2 text-sm text-gray-700">
-            {negativeColumns > positiveColumns && (
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                <p><strong>Crítico:</strong> Tienes más periodos negativos ({negativeColumns}) que positivos ({positiveColumns}). Prioriza reducir gastos operativos o aumentar las ventas.</p>
-              </div>
-            )}
-            {grandTotals.totalOutflows > grandTotals.totalInflows * 0.9 && grandTotals.netCashFlow >= 0 && (
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                <p><strong>Atención:</strong> Tus salidas representan más del 90% de tus entradas. Busca optimizar costos.</p>
-              </div>
-            )}
-            {positiveColumns >= Math.ceil(columnCount * 0.75) && grandTotals.netCashFlow > 0 && (
-              <div className="flex items-start gap-2">
-                <TrendingUp className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <p><strong>Excelente:</strong> Tu negocio muestra consistencia con {positiveColumns} periodos positivos.</p>
-              </div>
-            )}
-            {grandTotals.netCashFlow < 0 && (
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                <p><strong>Urgente:</strong> Analiza los periodos con mayor déficit. Puede requerir ajuste de precios o reducción de costos.</p>
-              </div>
-            )}
-            {positiveColumns >= Math.ceil(columnCount * 0.5) && negativeColumns >= Math.ceil(columnCount * 0.5) && (
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <p>Flujos irregulares. Identifica patrones estacionales y planifica mejor los gastos.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

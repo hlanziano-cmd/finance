@@ -80,6 +80,7 @@ function TransactionModal({
   const [date, setDate] = useState(initial?.date ?? new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState(initial?.description ?? '');
   const [reference, setReference] = useState(initial?.reference ?? '');
+  const [recurring, setRecurring] = useState(initial?.recurring ?? false);
 
   const isCustomCategory = category === '__custom__';
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
@@ -92,7 +93,7 @@ function TransactionModal({
     if (!amount) return alert('Ingresa un monto válido');
     if (!date) return alert('Ingresa la fecha');
 
-    onSave({ type, category: finalCategory, amount, date, description: description || undefined, reference: reference || undefined });
+    onSave({ type, category: finalCategory, amount, date, description: description || undefined, reference: reference || undefined, recurring });
   };
 
   return (
@@ -218,6 +219,20 @@ function TransactionModal({
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
+
+          {/* Recurring */}
+          <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 hover:bg-gray-100 transition-colors">
+            <input
+              type="checkbox"
+              checked={recurring}
+              onChange={(e) => setRecurring(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Recurrente diario</p>
+              <p className="text-xs text-gray-500 mt-0.5">Se mostrará todos los días del mes de forma permanente</p>
+            </div>
+          </label>
 
           {/* Actions */}
           <div className="flex gap-2 pt-1">
@@ -348,12 +363,12 @@ export default function TransactionsPage() {
   const [editTarget, setEditTarget] = useState<Transaction | undefined>();
   const [showWhatsApp, setShowWhatsApp] = useState(false);
 
-  // Client-side filters (category + day)
+  // Client-side filters (category + day); recurring transactions bypass day filter
   const filtered = useMemo(() => {
     if (!transactions) return [];
     return transactions.filter(t => {
       if (filterCategory && t.category !== filterCategory) return false;
-      if (filterDay !== '') {
+      if (filterDay !== '' && !t.recurring) {
         const day = new Date(t.date + 'T12:00:00').getDate();
         if (day !== filterDay) return false;
       }
@@ -582,16 +597,23 @@ export default function TransactionsPage() {
                           {dateObj.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            t.type === 'income'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}>
-                            {t.type === 'income'
-                              ? <><TrendingUp className="h-3 w-3" /> Ingreso</>
-                              : <><TrendingDown className="h-3 w-3" /> Gasto</>
-                            }
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              t.type === 'income'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              {t.type === 'income'
+                                ? <><TrendingUp className="h-3 w-3" /> Ingreso</>
+                                : <><TrendingDown className="h-3 w-3" /> Gasto</>
+                              }
+                            </span>
+                            {t.recurring && (
+                              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                Recurrente
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">{t.category}</td>
                         <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">

@@ -30,6 +30,7 @@ export interface TransactionDTO {
   date: string; // 'YYYY-MM-DD'
   description?: string;
   reference?: string;
+  recurring?: boolean;
 }
 
 export interface Transaction {
@@ -40,6 +41,7 @@ export interface Transaction {
   date: string;
   description: string | null;
   reference: string | null;
+  recurring: boolean;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -73,6 +75,7 @@ export class TransactionService {
         date: dto.date,
         description: dto.description || null,
         reference: dto.reference || null,
+        recurring: dto.recurring ?? false,
         created_by: user.id,
       })
       .select()
@@ -111,7 +114,8 @@ export class TransactionService {
       const monthStart = `${filters.year}-${monthStr}-01`;
       const daysInMonth = new Date(filters.year, filters.month, 0).getDate();
       const monthEnd = `${filters.year}-${monthStr}-${daysInMonth}`;
-      query = query.gte('date', monthStart).lte('date', monthEnd);
+      // Include transactions in the month OR any recurring transaction
+      query = query.or(`and(date.gte.${monthStart},date.lte.${monthEnd}),recurring.eq.true`);
     }
 
     const { data, error } = await query;
@@ -145,6 +149,7 @@ export class TransactionService {
         date: dto.date,
         description: dto.description || null,
         reference: dto.reference || null,
+        recurring: dto.recurring ?? false,
       })
       .eq('id', id)
       .eq('created_by', user.id)

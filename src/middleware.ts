@@ -1,81 +1,24 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return response
-  }
-
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
-    }
+  // Check for a Supabase auth cookie (any cookie starting with "sb-" and ending with "-auth-token")
+  const hasAuthCookie = request.cookies.getAll().some(
+    (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
   )
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  // Proteger rutas de dashboard
-  if (!session && request.nextUrl.pathname.startsWith('/dashboard')) {
+  // Protect dashboard routes
+  if (!hasAuthCookie && pathname.startsWith('/dashboard')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirigir a dashboard si ya está autenticado
-  if (session && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
+  // Redirect authenticated users away from login/register
+  if (hasAuthCookie && (pathname === '/login' || pathname === '/register')) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  return response
+  return NextResponse.next()
 }
 
 export const config = {

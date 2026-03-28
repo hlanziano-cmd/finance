@@ -330,6 +330,7 @@ function WhatsAppModal({ onClose }: { onClose: () => void }) {
 export default function TransactionsPage() {
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterDay, setFilterDay] = useState<number | ''>('');
   const [filterType, setFilterType] = useState<TransactionType | 'all'>('all');
   const [filterCategory, setFilterCategory] = useState('');
 
@@ -347,12 +348,18 @@ export default function TransactionsPage() {
   const [editTarget, setEditTarget] = useState<Transaction | undefined>();
   const [showWhatsApp, setShowWhatsApp] = useState(false);
 
-  // Client-side category filter (avoids extra DB round-trip)
+  // Client-side filters (category + day)
   const filtered = useMemo(() => {
     if (!transactions) return [];
-    if (!filterCategory) return transactions;
-    return transactions.filter(t => t.category === filterCategory);
-  }, [transactions, filterCategory]);
+    return transactions.filter(t => {
+      if (filterCategory && t.category !== filterCategory) return false;
+      if (filterDay !== '') {
+        const day = new Date(t.date + 'T12:00:00').getDate();
+        if (day !== filterDay) return false;
+      }
+      return true;
+    });
+  }, [transactions, filterCategory, filterDay]);
 
   const summary = useMemo(() => {
     const totalIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -460,7 +467,7 @@ export default function TransactionsPage() {
               <label className="block text-xs font-medium text-gray-500 mb-1">Mes</label>
               <select
                 value={filterMonth}
-                onChange={(e) => setFilterMonth(Number(e.target.value))}
+                onChange={(e) => { setFilterMonth(Number(e.target.value)); setFilterDay(''); }}
                 className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
               >
                 {MONTH_NAMES.map((name, i) => (
@@ -472,10 +479,26 @@ export default function TransactionsPage() {
               <label className="block text-xs font-medium text-gray-500 mb-1">Año</label>
               <select
                 value={filterYear}
-                onChange={(e) => setFilterYear(Number(e.target.value))}
+                onChange={(e) => { setFilterYear(Number(e.target.value)); setFilterDay(''); }}
                 className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
               >
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Día</label>
+              <select
+                value={filterDay}
+                onChange={(e) => setFilterDay(e.target.value === '' ? '' : Number(e.target.value))}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Todos</option>
+                {Array.from(
+                  { length: new Date(filterYear, filterMonth, 0).getDate() },
+                  (_, i) => i + 1
+                ).map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
               </select>
             </div>
             <div>
